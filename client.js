@@ -9,6 +9,7 @@ const CONFIG = {
 };
 
 // ================== GLOBAL VARIABLES ==================
+// Declare ONCE at the top
 let customerId = localStorage.getItem('pureflow_customer_id');
 if (!customerId) {
     customerId = 'CUST_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8).toUpperCase();
