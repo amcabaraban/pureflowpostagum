@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PureFlow POS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <img src="pureflow-logo.png" alt="PureFlow Logo" class="card-logo">
+                <h1>PureFlow POS</h1>
+                <p>Login to continue</p>
+            </div>
+            
+            <!-- Login Tabs -->
+            <div class="login-tabs">
+                <button class="login-tab-btn active" onclick="showLoginTab('staff')">Staff Login</button>
+                <button class="login-tab-btn" onclick="showLoginTab('client')">Client Order</button>
+            </div>
+            
+            <!-- Staff Login Form -->
+            <div id="staffLoginForm" class="login-form">
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-user"></i> Username
+                    </label>
+                    <input type="text" id="username" class="form-input" 
+                           placeholder="Enter username" value="admin">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-lock"></i> Password
+                    </label>
+                    <input type="password" id="password" class="form-input" 
+                           placeholder="Enter password" value="admin123">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-user-tag"></i> Role
+                    </label>
+                    <select id="userRole" class="form-select">
+                        <option value="admin">Administrator</option>
+                        <option value="cashier">Cashier</option>
+                    </select>
+                </div>
+                <!-- In staffLoginForm, after the login button -->
+                <div class="login-actions">
+                    <button class="btn-primary" onclick="staffLogin()">
+                        <i class="fas fa-sign-in-alt"></i> Staff Login
+                    </button>
+                </div>
+                <div class="login-actions" style="margin-top: 10px;">
+                    <button class="btn-secondary" onclick="showForgotPassword()" style="width: 100%;">
+                        <i class="fas fa-question-circle"></i> Forgot Password?
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Client Order Form -->
+            <div id="clientLoginForm" class="login-form" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-user"></i> Client Name
+                    </label>
+                    <input type="text" id="clientName" class="form-input" 
+                           placeholder="Enter your name">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-phone"></i> Phone Number
+                    </label>
+                    <input type="tel" id="clientPhone" class="form-input" 
+                           placeholder="0912-345-6789">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">
+                        <i class="fas fa-map-marker-alt"></i> Delivery Address
+                    </label>
+                    <textarea id="clientAddress" class="form-input" 
+                              placeholder="Enter complete delivery address" rows="2"></textarea>
+                </div>
+                
+                <div class="login-actions">
+                    <button class="btn-primary" onclick="clientLogin()">
+                        <i class="fas fa-shopping-cart"></i> Start Ordering
+                    </button>
+                </div>
+            </div>
+            
+            <div class="login-footer">
+                <p><i class="fas fa-shopping-cart"></i> Clients: Enter your details to place an order</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application (Hidden until login) -->
+    <div id="appContainer" class="container" style="display: none;">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                <div class="header-title">
+                    <h1 id="storeTitle">PureFlow POS</h1>
+                    <span id="currentDate" class="date-display"></span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <span id="currentUserRole" class="user-role"></span>
+                    <button class="btn-logout" onclick="logout()" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="navigation">
+            <button class="nav-btn active" onclick="showTab('dashboard')">
+                <i class="fas fa-tachometer-alt"></i> <span>Dashboard</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('sale')">
+                <i class="fas fa-cash-register"></i> <span>New Sale</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('customers')">
+                <i class="fas fa-users"></i> <span>Customers</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('orders')" id="ordersTab">
+                <i class="fas fa-clipboard-list"></i> <span>Orders Report</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('reports')">
+                <i class="fas fa-chart-bar"></i> <span>Sales Reports</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('settings')" id="settingsTab">
+                <i class="fas fa-cog"></i> <span>Settings</span>
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard Tab -->
+<section id="dashboard" class="tab-content active">
+    <div class="card">
+        <div class="card-header">
+            <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+            <h2 class="card-title">
+                <i class="fas fa-tachometer-alt"></i> Dashboard Overview
+            </h2>
+            <button class="btn-primary" onclick="refreshDashboard()" style="margin-left: auto;">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+        
+        <!-- Quick Stats -->
+        <div class="summary-grid" style="margin: 20px 0;">
+            <div class="stat-box" style="background: #e8f5e9;">
+                <div class="stat-value" id="dashboardTodayRevenue">₱0</div>
+                <div class="stat-label">Today's Revenue</div>
+                <small id="dashboardRevenueChange" style="color: #666; font-size: 12px; margin-top: 5px;">--</small>
+            </div>
+            
+            <div class="stat-box" style="background: #fff3cd;">
+                <div class="stat-value" id="dashboardTodaySales">0</div>
+                <div class="stat-label">Today's Sales</div>
+                <small id="dashboardSalesChange" style="color: #666; font-size: 12px; margin-top: 5px;">--</small>
+            </div>
+            
+            <div class="stat-box" style="background: #cce5ff;">
+                <div class="stat-value" id="dashboardTotalCustomers">0</div>
+                <div class="stat-label">Total Customers</div>
+                <small style="color: #666; font-size: 12px; margin-top: 5px;">Regular & Suki</small>
+            </div>
+            
+            <div class="stat-box" style="background: #d1ecf1;">
+                <div class="stat-value" id="dashboardPendingOrders">0</div>
+                <div class="stat-label">Pending Orders</div>
+                <small style="color: #666; font-size: 12px; margin-top: 5px;">To be delivered</small>
+            </div>
+        </div>
+        
+        <!-- Quick Stats 2 -->
+        <div class="summary-grid" style="margin: 20px 0;">
+            <div class="stat-box" style="background: #f8f9fa;">
+                <div class="stat-value" id="totalWaterSold">0</div>
+                <div class="stat-label">Total Water Sold</div>
+                <small style="color: #666; font-size: 12px; margin-top: 5px;">Gallons</small>
+            </div>
+            
+            <div class="stat-box" style="background: #e8f5e9;">
+                <div class="stat-value" id="sukiCount">0</div>
+                <div class="stat-label">Suki Customers</div>
+                <small style="color: #666; font-size: 12px; margin-top: 5px;">Loyal customers</small>
+            </div>
+            
+            <div class="stat-box" style="background: #fff3cd;">
+                <div class="stat-value" id="completedOrders">0</div>
+                <div class="stat-label">Completed Orders</div>
+                <small style="color: #666; font-size: 12px; margin-top: 5px;">Delivered</small>
+            </div>
+            
+            <div class="stat-box" style="background: #cce5ff;">
+                <div class="stat-value" id="pendingDelivery">0</div>
+                <div class="stat-label">Pending Delivery</div>
+                <small style="color: #666; font-size: 12px; margin-top: 5px;">To be delivered</small>
+            </div>
+        </div>
+        
+        <!-- Charts Section - Vertical Stack -->
+        <div class="chart-container">
+            <div class="card">
+                <div class="chart-header">
+                    <h3><i class="fas fa-chart-line"></i> Sales Trend (Last 7 Days)</h3>
+                    <div class="chart-controls">
+                        <button class="chart-btn" onclick="zoomChart('salesTrendChart', 'in')" title="Zoom In">
+                            <i class="fas fa-search-plus"></i>
+                        </button>
+                        <button class="chart-btn" onclick="zoomChart('salesTrendChart', 'out')" title="Zoom Out">
+                            <i class="fas fa-search-minus"></i>
+                        </button>
+                        <button class="chart-btn" onclick="resetChart('salesTrendChart')" title="Reset Zoom">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="salesTrendChart"></canvas>
+                </div>
+                <div class="chart-footer">
+                    <small>Hover over data points to see exact values. Use zoom controls for detailed view.</small>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="chart-header">
+                    <h3><i class="fas fa-users"></i> Customer Distribution</h3>
+                    <div class="chart-controls">
+                        <button class="chart-btn" onclick="toggleChartType('customerTypeChart')" title="Switch Chart Type">
+                            <i class="fas fa-exchange-alt"></i>
+                        </button>
+                        <button class="chart-btn" onclick="downloadChart('customerTypeChart')" title="Download Chart">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="customerTypeChart"></canvas>
+                </div>
+                <div class="chart-footer">
+                    <small>Click on legend items to toggle visibility. Regular vs Suki customer comparison.</small>
+                </div>
+            </div>
+            
+            <!-- Monthly Revenue Chart -->
+            <div class="card">
+                <div class="chart-header">
+                    <h3><i class="fas fa-calendar-alt"></i> Monthly Revenue Overview</h3>
+                    <div class="chart-controls">
+                        <select class="chart-select" onchange="updateMonthlyChart(this.value)">
+                            <option value="6">Last 6 Months</option>
+                            <option value="12">Last 12 Months</option>
+                            <option value="all">All Time</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="monthlyRevenueChart"></canvas>
+                </div>
+                <div class="chart-footer">
+                    <small>Shows monthly revenue trends. Use dropdown to change time period.</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        <div class="activity-grid">
+            <div class="card">
+                <div class="table-header">
+                    <h3><i class="fas fa-history"></i> Recent Sales</h3>
+                    <button class="btn-secondary btn-sm" onclick="showAllSales()">
+                        <i class="fas fa-list"></i> View All
+                    </button>
+                </div>
+                <div class="table-container" style="max-height: 300px;">
+                    <table class="customer-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Customer</th>
+                                <th>Amount</th>
+                                <th>Type</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentSalesTable">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <small>Last 5 sales transactions</small>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="table-header">
+                    <h3><i class="fas fa-crown"></i> Top Customers</h3>
+                    <button class="btn-secondary btn-sm" onclick="showAllCustomers()">
+                        <i class="fas fa-users"></i> View All
+                    </button>
+                </div>
+                <div class="table-container" style="max-height: 300px;">
+                    <table class="customer-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Customer</th>
+                                <th>Total Spent</th>
+                                <th>Purchases</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topCustomersTable">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <small>Top 5 customers by total spending</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Indicators -->
+        <div class="performance-grid">
+            <div class="card">
+                <h3><i class="fas fa-bolt"></i> Performance Indicators</h3>
+                <div class="performance-metrics">
+                    <div class="metric-item">
+                        <div class="metric-label">Average Sale Value</div>
+                        <div class="metric-value" id="avgSaleValue">₱0</div>
+                        <div class="metric-trend up" id="avgSaleTrend">+0%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Customer Retention Rate</div>
+                        <div class="metric-value" id="retentionRate">0%</div>
+                        <div class="metric-trend stable" id="retentionTrend">0%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Order Fulfillment Rate</div>
+                        <div class="metric-value" id="fulfillmentRate">0%</div>
+                        <div class="metric-trend down" id="fulfillmentTrend">0%</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-label">Revenue Growth (Month)</div>
+                        <div class="metric-value" id="revenueGrowth">0%</div>
+                        <div class="metric-trend up" id="growthTrend">+0%</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><i class="fas fa-clock"></i> Quick Actions</h3>
+                <div class="quick-actions">
+                    <button class="action-btn" onclick="showTab('sale')">
+                        <i class="fas fa-cash-register"></i>
+                        <span>New Sale</span>
+                    </button>
+                    <button class="action-btn" onclick="showTab('customers')">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Add Customer</span>
+                    </button>
+                    <button class="action-btn" onclick="showTab('orders')">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>View Orders</span>
+                    </button>
+                    <button class="action-btn" onclick="generateReport()">
+                        <i class="fas fa-file-export"></i>
+                        <span>Export Report</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+            <!-- New Sale Tab -->
+            <section id="sale" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h2 class="card-title">
+                            <i class="fas fa-shopping-cart"></i> New Sale
+                        </h2>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-user-tag"></i> Customer Type
+                        </label>
+                        <select id="customerType" class="form-select" onchange="calculateTotal()">
+                            <option value="regular">Regular</option>
+                            <option value="suki">Suki / Bulk (10% off)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-user"></i> Customer Name
+                        </label>
+                        <input type="text" id="customerName" class="form-input" 
+                               placeholder="Enter customer name" list="customerSuggestions">
+                        <datalist id="customerSuggestions"></datalist>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-water"></i> Quantity (5 Gallon)
+                        </label>
+                        <div class="quantity-control">
+                            <button type="button" class="qty-btn" onclick="changeQuantity(-1)">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" id="quantity" class="qty-input" 
+                                   value="1" min="1" onchange="calculateTotal()">
+                            <button type="button" class="qty-btn" onclick="changeQuantity(1)">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Total Amount Display -->
+                    <div class="total-display">
+                        <div class="total-label">Total Amount</div>
+                        <div class="total-amount">₱<span id="totalAmount">15</span></div>
+                    </div>
+                    
+                    <button class="btn-primary" onclick="processSale()">
+                        <i class="fas fa-check-circle"></i> Confirm Sale
+                    </button>
+                </div>
+                
+                <!-- Today's Summary -->
+                <div class="card summary-card">
+                    <div class="card-header">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h3 class="card-title">
+                            <i class="fas fa-chart-line"></i> Today's Summary
+                        </h3>
+                    </div>
+                    
+                    <div class="summary-grid">
+                        <div class="stat-box">
+                            <div class="stat-value" id="todaySales">0</div>
+                            <div class="stat-label">Today's Sales</div>
+                        </div>
+                        
+                        <div class="stat-box">
+                            <div class="stat-value" id="todayRevenue">₱0</div>
+                            <div class="stat-label">Today's Revenue</div>
+                        </div>
+                        
+                        <div class="stat-box">
+                            <div class="stat-value" id="totalCustomers">0</div>
+                            <div class="stat-label">Total Customers</div>
+                        </div>
+                        
+                        <div class="stat-box">
+                            <div class="stat-value" id="todayOrders">0</div>
+                            <div class="stat-label">Today's Orders</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Customers Tab -->
+            <section id="customers" class="tab-content">
+                <div class="card">
+                    <div class="customer-header">
+                        <div class="card-header">
+                            <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                            <h2 class="card-title">
+                                <i class="fas fa-users"></i> Customer Management
+                            </h2>
+                        </div>
+                        <button class="btn-primary" onclick="showAddCustomerModal()">
+                            <i class="fas fa-user-plus"></i> Add New Customer
+                        </button>
+                    </div>
+                    
+                    <!-- Customer List -->
+                    <div class="customer-list">
+                        <!-- Search -->
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="searchCustomer" class="search-input" 
+                                   placeholder="Search customers by name, phone, or address..." oninput="filterCustomers()">
+                        </div>
+                        
+                        <!-- Customer Table -->
+                        <div class="table-container">
+                            <table class="customer-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Contact</th>
+                                        <th>Address</th>
+                                        <th>Type</th>
+                                        <th>Total Spent</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customersTable">
+                                    <!-- Customer list will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Orders Report Tab -->
+            <section id="orders" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h2 class="card-title">
+                            <i class="fas fa-clipboard-list"></i> Client Orders Report
+                        </h2>
+                    </div>
+                    
+                    <!-- Order Filters -->
+                    <div class="report-controls">
+                        <select id="orderFilter" class="form-select" onchange="loadOrdersReport()">
+                            <option value="all">All Orders</option>
+                            <option value="fulfilled">Fulfilled Orders (Delivered)</option>
+                            <option value="not-fulfilled">Not Yet Fulfilled</option>
+                            <option value="pending">Pending Orders</option>
+                            <option value="confirmed">Confirmed Orders</option>
+                            <option value="processing">Processing Orders</option>
+                            <option value="cancelled">Cancelled Orders</option>
+                            <option value="today">Today's Orders</option>
+                            <option value="week">This Week's Orders</option>
+                        </select>
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-secondary" onclick="exportOrdersReport()">
+                                <i class="fas fa-file-export"></i> Export CSV
+                            </button>
+                            <button class="btn-secondary" onclick="printOrdersReport()">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Orders Summary -->
+                    <div class="summary-grid" style="margin: 20px 0;">
+                        <div class="stat-box" style="background: #e8f5e9;">
+                            <div class="stat-value" id="totalOrdersCount">0</div>
+                            <div class="stat-label">Total Orders</div>
+                        </div>
+                        
+                        <div class="stat-box" style="background: #fff3cd;">
+                            <div class="stat-value" id="pendingOrdersCount">0</div>
+                            <div class="stat-label">Pending</div>
+                        </div>
+                        
+                        <div class="stat-box" style="background: #cce5ff;">
+                            <div class="stat-value" id="confirmedOrdersCount">0</div>
+                            <div class="stat-label">Confirmed</div>
+                        </div>
+                        
+                        <div class="stat-box" style="background: #d1ecf1;">
+                            <div class="stat-value" id="processingOrdersCount">0</div>
+                            <div class="stat-label">Processing</div>
+                        </div>
+                        
+                        <div class="stat-box" style="background: #d4edda;">
+                            <div class="stat-value" id="deliveredOrdersCount">0</div>
+                            <div class="stat-label">Delivered</div>
+                        </div>
+                        
+                        <div class="stat-box" style="background: #f8d7da;">
+                            <div class="stat-value" id="cancelledOrdersCount">0</div>
+                            <div class="stat-label">Cancelled</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Orders Table -->
+                    <div class="table-container">
+                        <table class="customer-table">
+                            <thead>
+                                <tr>
+                                    <th>Order #</th>
+                                    <th>Date</th>
+                                    <th>Client Name</th>
+                                    <th>Phone</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Delivery Schedule</th>
+                                    <th>Status</th>
+                                    <th>Fulfilled</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersReportTable">
+                                <!-- Orders will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Total Revenue -->
+                    <div class="report-total" style="margin-top: 20px;">
+                        <h3>Total Orders Revenue: ₱<span id="ordersTotalRevenue">0</span></h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports Tab -->
+            <section id="reports" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h2 class="card-title">
+                            <i class="fas fa-chart-bar"></i> Sales Reports
+                        </h2>
+                    </div>
+                    
+                    <!-- Report Controls -->
+                    <div class="report-controls">
+                        <select id="reportPeriod" class="form-select" onchange="generateReport()">
+                            <option value="today">Today</option>
+                            <option value="week">This Week</option>
+                            <option value="month">This Month</option>
+                            <option value="all">All Time</option>
+                        </select>
+                        
+                        <button class="btn-secondary" onclick="exportReport()">
+                            <i class="fas fa-file-export"></i> Export CSV
+                        </button>
+                        <button class="btn-secondary" onclick="window.print()">
+                            <i class="fas fa-print"></i> Print
+                        </button>
+                    </div>
+                    
+                    <!-- Sales Report -->
+                    <div class="sales-report">
+                        <h3><i class="fas fa-history"></i> Sales History</h3>
+                        <div class="table-container">
+                            <table class="sales-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date & Time</th>
+                                        <th>Customer</th>
+                                        <th>Type</th>
+                                        <th>Quantity</th>
+                                        <th>Amount</th>
+                                        <th id="actionsHeader" style="width: 100px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salesReport">
+                                    <!-- Sales report will be populated here -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="report-total">
+                            <h3>Grand Total: ₱<span id="reportTotal">0</span></h3>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Tab -->
+            <section id="settings" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h2 class="card-title">
+                            <i class="fas fa-cog"></i> Settings
+                        </h2>
+                    </div>
+                    
+                    <!-- Store Settings -->
+                    <div class="settings-form">
+                        <div class="form-group">
+                            <label class="form-label">Store Name</label>
+                            <input type="text" id="storeName" class="form-input" 
+                                   placeholder="Enter store name">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Base Price (₱)</label>
+                            <input type="number" id="basePrice" class="form-input" 
+                                   value="15" min="1">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Suki Discount (%)</label>
+                            <input type="number" id="sukiDiscount" class="form-input" 
+                                   value="10" min="0" max="100">
+                        </div>
+                        
+                        <button class="btn-primary" onclick="saveSettings()">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                    </div>
+                    
+                    <!-- Data Management (Admin only) -->
+                    <div class="data-management" id="dataManagementSection">
+                        <h3><i class="fas fa-database"></i> Data Management</h3>
+                        <div class="data-buttons">
+                            <button class="btn-secondary" onclick="backupData()">
+                                <i class="fas fa-download"></i> Backup Data
+                            </button>
+                            <button class="btn-secondary" onclick="manageUsers()">
+                                <i class="fas fa-users-cog"></i> Manage Users
+                            </button>
+                            <button class="btn-danger" onclick="clearData()">
+                                <i class="fas fa-trash"></i> Clear Sales Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Add Customer Modal -->
+        <div id="addCustomerModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-logo-title">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h3><i class="fas fa-user-plus"></i> Add New Customer</h3>
+                    </div>
+                    <button class="modal-close" onclick="closeAddCustomerModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" id="addCustomerName" class="form-input" 
+                               placeholder="Enter customer's full name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Number</label>
+                        <input type="tel" id="addCustomerPhone" class="form-input" 
+                               placeholder="0912-345-6789">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Address</label>
+                        <textarea id="addCustomerAddress" class="form-input" 
+                                  placeholder="Enter complete address" rows="2"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Customer Type</label>
+                        <select id="addCustomerType" class="form-select">
+                            <option value="regular">Regular</option>
+                            <option value="suki">Suki (Loyal Customer)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" onclick="addNewCustomer()">
+                        <i class="fas fa-save"></i> Save Customer
+                    </button>
+                    <button class="btn-secondary" onclick="closeAddCustomerModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Update Order Status Modal -->
+        <div id="updateOrderModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-logo-title">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h3><i class="fas fa-edit"></i> Update Order Status</h3>
+                    </div>
+                    <button class="modal-close" onclick="closeUpdateOrderModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="updateOrderId">
+                    
+                    <div class="form-group">
+                        <label class="form-label">Order Number</label>
+                        <input type="text" id="updateOrderNumber" class="form-input" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Client Name</label>
+                        <input type="text" id="updateClientName" class="form-input" readonly>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Status *</label>
+                        <select id="updateOrderStatus" class="form-select">
+                            <option value="pending">Pending - Not Yet Fulfilled</option>
+                            <option value="confirmed">Confirmed - Processing</option>
+                            <option value="processing">Processing - On Delivery</option>
+                            <option value="delivered">Delivered - Fulfilled ✓</option>
+                            <option value="cancelled">Cancelled - Not Fulfilled ✗</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Delivery Person</label>
+                        <input type="text" id="updateDeliveryPerson" class="form-input" 
+                               placeholder="Name of delivery person (if delivered)">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" onclick="saveOrderUpdate()">
+                        <i class="fas fa-save"></i> Save Status
+                    </button>
+                    <button class="btn-secondary" onclick="closeUpdateOrderModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast">
+            <div class="toast-logo">PureFlow Logo</div>
+            <span class="toast-message"></span>
+        </div>
+    </div>
+
+    <!-- Client Ordering Page (Hidden) -->
+    <div id="clientOrderContainer" class="container" style="display: none;">
+        <!-- Client Header -->
+        <header class="header" style="background: linear-gradient(135deg, #28a745, #20c997);">
+            <div class="header-left">
+                <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                <div class="header-title">
+                    <h1 id="clientStoreTitle">PureFlow Water Delivery</h1>
+                    <span id="clientCurrentDate" class="date-display"></span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <span id="clientInfo" class="user-role client"></span>
+                    <button class="btn-logout" onclick="clientLogout()" title="Logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Client Navigation -->
+        <nav class="navigation" style="background: #e8f5e9;">
+            <button class="nav-btn active" onclick="showClientTab('order')">
+                <i class="fas fa-shopping-cart"></i> <span>Place Order</span>
+            </button>
+            <button class="nav-btn" onclick="showClientTab('myorders')">
+                <i class="fas fa-history"></i> <span>My Orders</span>
+            </button>
+            <button class="nav-btn" onclick="showClientTab('profile')">
+                <i class="fas fa-user"></i> <span>My Profile</span>
+            </button>
+        </nav>
+
+        <!-- Client Main Content -->
+        <main class="main-content">
+            <!-- Place Order Tab -->
+            <section id="clientOrder" class="tab-content active">
+                <div class="card">
+                    <div class="card-header">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h2 class="card-title">
+                            <i class="fas fa-water"></i> Order PureFlow Water
+                        </h2>
+                    </div>
+                    
+                    <!-- Order Summary -->
+                    <div class="order-summary">
+                        <h3><i class="fas fa-user-circle"></i> Ordering as: <span id="orderClientName"></span></h3>
+                        <div class="order-info-grid">
+                            <div>
+                                <strong><i class="fas fa-phone"></i> Phone:</strong> <span id="orderClientPhone"></span>
+                            </div>
+                            <div>
+                                <strong><i class="fas fa-map-marker-alt"></i> Address:</strong> <span id="orderClientAddress"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Order Form -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-tint"></i> Container Size
+                        </label>
+                        <select id="containerSize" class="form-select" onchange="calculateClientTotal()">
+                            <option value="5">5 Gallon Container - ₱15</option>
+                            <option value="3">3 Gallon Container - ₱10</option>
+                            <option value="1">1 Gallon Container - ₱5</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-box"></i> Quantity
+                        </label>
+                        <div class="quantity-control">
+                            <button type="button" class="qty-btn" onclick="changeClientQuantity(-1)">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                            <input type="number" id="clientQuantity" class="qty-input" 
+                                   value="1" min="1" max="50" onchange="calculateClientTotal()">
+                            <button type="button" class="qty-btn" onclick="changeClientQuantity(1)">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Total Amount Display -->
+                    <div class="total-display client-total">
+                        <div class="total-label">Order Total</div>
+                        <div class="total-amount">₱<span id="clientTotalAmount">15</span></div>
+                    </div>
+                    
+                    <button class="btn-primary client-btn" onclick="submitClientOrder()">
+                        <i class="fas fa-paper-plane"></i> Submit Order
+                    </button>
+                </div>
+            </section>
+
+            <!-- My Orders Tab -->
+            <section id="clientMyOrders" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-logo">PureFlow Logo</div>
+                        <h2 class="card-title">
+                            <i class="fas fa-history"></i> My Orders
+                        </h2>
+                    </div>
+                    
+                    <!-- Orders List -->
+                    <div class="table-container">
+                        <table class="customer-table">
+                            <thead>
+                                <tr>
+                                    <th>Order #</th>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Fulfilled</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clientOrdersTable">
+                                <!-- Orders will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- My Profile Tab -->
+            <section id="clientProfile" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                        <h2 class="card-title">
+                            <i class="fas fa-user"></i> My Profile
+                        </h2>
+                    </div>
+                    
+                    <div class="profile-info">
+                        <div class="form-group">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" id="profileName" class="form-input" 
+                                   placeholder="Your full name">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Phone Number</label>
+                            <input type="tel" id="profilePhone" class="form-input" 
+                                   placeholder="0912-345-6789">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Delivery Address</label>
+                            <textarea id="profileAddress" class="form-input" 
+                                      placeholder="Your complete address" rows="3"></textarea>
+                        </div>
+                        
+                        <button class="btn-primary client-btn" onclick="updateClientProfile()">
+                            <i class="fas fa-save"></i> Update Profile
+                        </button>
+                    </div>
+                </div>
+                <!-- Water Container Background Images -->
+                <div class="water-container-left"></div>
+                <div class="water-container-right"></div>
+
+                <!-- Animated Water Bubbles -->
+                <div class="water-bubbles">
+                    <div class="bubble"></div>
+                    <div class="bubble"></div>
+                    <div class="bubble"></div>
+                    <div class="bubble"></div>
+                    <div class="bubble"></div>
+                    <div class="bubble"></div>
+                    <div class="bubble"></div>
+                    <div class="bubble"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- EmailJS SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script> 
+    <script src="script.js"></script>
+</body>
+</html>

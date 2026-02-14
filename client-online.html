@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PureFlow - Order Water Online</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="client-style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="client-container">
+        <div class="header">
+            <img src="pureflow-logo.png" alt="PureFlow" class="logo">
+            <h1>PureFlow Water Delivery</h1>
+            <p>Order Online • Delivered to Your Doorstep</p>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div id="loading" class="loading" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i> Processing...
+        </div>
+        
+        <!-- Customer Info Form -->
+        <div class="order-card">
+            <h2><i class="fas fa-user"></i> Your Details</h2>
+            
+            <div class="form-group">
+                <label>Full Name *</label>
+                <input type="text" id="clientName" class="form-input" placeholder="Enter your full name">
+            </div>
+            
+            <div class="form-group">
+                <label>Phone Number *</label>
+                <input type="tel" id="clientPhone" class="form-input" placeholder="0912-345-6789">
+            </div>
+            
+            <div class="form-group">
+                <label>Delivery Address *</label>
+                <textarea id="clientAddress" class="form-input" placeholder="Complete address" rows="2"></textarea>
+            </div>
+        </div>
+        
+        <!-- Order Form -->
+        <div class="order-card">
+            <h2><i class="fas fa-shopping-cart"></i> Place Your Order</h2>
+            
+            <div class="form-group">
+                <label>Container Size</label>
+                <select id="containerSize" class="form-select" onchange="calculateTotal()">
+                    <option value="5">5 Gallon Container - ₱15</option>
+                    <option value="3">3 Gallon Container - ₱10</option>
+                    <option value="1">1 Gallon Container - ₱5</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Quantity</label>
+                <div class="quantity-control">
+                    <button type="button" onclick="changeQty(-1)" class="qty-btn">−</button>
+                    <input type="number" id="quantity" value="1" min="1" max="20" readonly class="qty-input">
+                    <button type="button" onclick="changeQty(1)" class="qty-btn">+</button>
+                </div>
+            </div>
+            
+            <div class="price-box">
+                <div class="total-label">Total Amount:</div>
+                <div class="total-amount">₱<span id="totalAmount">15</span></div>
+            </div>
+            
+            <button class="order-btn" onclick="submitOrder()">
+                <i class="fas fa-cloud-upload-alt"></i> Place Order Online
+            </button>
+            
+            <div class="note">
+                <i class="fas fa-globe"></i> 
+                Your order will be sent online and synced to the store
+            </div>
+        </div>
+        
+        <!-- Success Message (hidden by default) -->
+        <div id="successMessage" class="success-card" style="display: none;">
+            <i class="fas fa-check-circle"></i>
+            <h3>Order Placed Successfully!</h3>
+            <p>Your order has been sent to PureFlow. We'll contact you for delivery.</p>
+            <button class="btn-small" onclick="placeAnotherOrder()">Place Another Order</button>
+        </div>
+    </div>
+    
+    <script src="client-online.js"></script>
+</body>
+</html>
