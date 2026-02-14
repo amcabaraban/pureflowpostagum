@@ -3,7 +3,7 @@
 // REPLACE WITH YOUR ACTUAL CREDENTIALS
 const CONFIG = {
     JSONBIN_API_KEY: '$2a$10$U8BrH5EcRobDpvnrqoD2UecdqTerHvqEMbH.xkf9IO8HYL3ICvhAC', // Your Master Key from Profile → API Keys
-    BIN_ID: '69906fa1d0ea881f40b9fe97', // Your bin ID
+    BIN_ID: '699089c0d0ea881f40ba2fcf', // Your bin ID
     API_URL: 'https://api.jsonbin.io/v3',
     DEBUG: true
 };
