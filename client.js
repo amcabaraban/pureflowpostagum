@@ -1,8 +1,8 @@
 // client-online.js - PureFlow Online Client Ordering
 // CONFIGURATION - REPLACE WITH YOUR OWN!
 const CONFIG = {
-    JSONBIN_API_KEY: '$2a$10$YourActualAPIKeyHere', // Get from jsonbin.io
-    BIN_ID: 'your-bin-id-here', // Your bin ID
+    JSONBIN_API_KEY: '$2a$10$EemUkkz5qrB6ehJAaYBYoe2R5Ba/0ZP.hdseALRo583Mt/MLFpFeS', // Get from jsonbin.io
+    BIN_ID: '69906fa1d0ea881f40b9fe97', // Your bin ID
     API_URL: 'https://api.jsonbin.io/v3'
 };
 
