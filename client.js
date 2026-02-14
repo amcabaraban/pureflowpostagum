@@ -5,9 +5,359 @@ const CONFIG = {
     JSONBIN_API_KEY: '$2a$10$3mqRHpEXrn2wWNe1K2h4cuHjnlNzZP8HdJZeEvczm1LPTT/0nJoVK', // Get from jsonbin.io
     BIN_ID: '69906fa1d0ea881f40b9fe97', // Your bin ID
     API_URL: 'https://api.jsonbin.io/v3',
-    DEBUG: true,
+    DEBUG: true // <-- Make sure there's a comma after API_URL line
 };
 
+// ================== GLOBAL VARIABLES ==================
+let customerId = localStorage.getItem('pureflow_customer_id');
+if (!customerId) {
+    customerId = 'CUST_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8).toUpperCase();
+    localStorage.setItem('pureflow_customer_id', customerId);
+}
+
+let customerInfo = JSON.parse(localStorage.getItem('pureflow_customer') || '{}');
+
+// ================== DEBUG FUNCTION ==================
+function debugLog(message, data) {
+    if (CONFIG.DEBUG) {
+        console.log(`🔍 [DEBUG] ${message}`, data || '');
+    }
+}
+
+// ================== UI FUNCTIONS ==================
+function showLoading(show) {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = show ? 'flex' : 'none';
+    }
+}
+
+function showError(message) {
+    const errorDiv = document.getElementById('errorDisplay');
+    const errorText = document.getElementById('errorText');
+    if (errorDiv && errorText) {
+        errorText.textContent = message;
+        errorDiv.style.display = 'block';
+        setTimeout(() => {
+            errorDiv.style.display = 'none';
+        }, 5000);
+    } else {
+        alert(message); // Fallback
+    }
+}
+
+function showSuccess(show, orderId = '', phone = '') {
+    const successMsg = document.getElementById('successMessage');
+    const orderCard = document.querySelector('.order-card');
+    if (successMsg && orderCard) {
+        successMsg.style.display = show ? 'block' : 'none';
+        orderCard.style.display = show ? 'none' : 'block';
+        if (show) {
+            const orderIdEl = document.getElementById('successOrderId');
+            const phoneEl = document.getElementById('successPhone');
+            if (orderIdEl) orderIdEl.textContent = `Order #: ${orderId}`;
+            if (phoneEl) phoneEl.textContent = phone;
+        }
+    }
+}
+
+function calculateTotal() {
+    const qtyInput = document.getElementById('quantity');
+    const sizeSelect = document.getElementById('containerSize');
+    const totalSpan = document.getElementById('totalAmount');
+    
+    if (!qtyInput || !sizeSelect || !totalSpan) return 15;
+    
+    const qty = parseInt(qtyInput.value) || 1;
+    const size = parseInt(sizeSelect.value);
+    const price = size === 5 ? 15 : size === 3 ? 10 : 5;
+    const total = price * qty;
+    totalSpan.textContent = total;
+    return total;
+}
+
+function changeQty(delta) {
+    const input = document.getElementById('quantity');
+    if (!input) return;
+    
+    let val = parseInt(input.value) + delta;
+    if (val < 1) val = 1;
+    if (val > 20) val = 20;
+    input.value = val;
+    calculateTotal();
+}
+
+function saveCustomerInfo() {
+    const nameInput = document.getElementById('clientName');
+    const phoneInput = document.getElementById('clientPhone');
+    const addressInput = document.getElementById('clientAddress');
+    
+    if (!nameInput || !phoneInput || !addressInput) return;
+    
+    customerInfo = {
+        name: nameInput.value.trim(),
+        phone: phoneInput.value.trim(),
+        address: addressInput.value.trim()
+    };
+    localStorage.setItem('pureflow_customer', JSON.stringify(customerInfo));
+    debugLog('Customer info saved', customerInfo);
+}
+
+// ================== CLOUD FUNCTIONS ==================
+async function testConnection() {
+    const testResult = document.getElementById('testResult');
+    if (!testResult) return;
+    
+    testResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+    
+    try {
+        const response = await fetch(`${CONFIG.API_URL}/b/${CONFIG.BIN_ID}/latest`, {
+            headers: {
+                'X-Master-Key': CONFIG.JSONBIN_API_KEY
+            }
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            testResult.innerHTML = '✅ Connection successful! Server is reachable.';
+            testResult.style.color = '#28a745';
+            debugLog('Connection test successful', data);
+        } else {
+            testResult.innerHTML = `❌ Connection failed: ${response.status} ${response.statusText}`;
+            testResult.style.color = '#dc3545';
+        }
+    } catch (error) {
+        testResult.innerHTML = `❌ Connection error: ${error.message}`;
+        testResult.style.color = '#dc3545';
+        debugLog('Connection test error', error);
+    }
+}
+
+async function getCloudOrders() {
+    debugLog('Fetching orders from cloud...');
+    try {
+        const response = await fetch(`${CONFIG.API_URL}/b/${CONFIG.BIN_ID}/latest`, {
+            headers: {
+                'X-Master-Key': CONFIG.JSONBIN_API_KEY
+            }
+        });
+        
+        debugLog('Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        debugLog('Cloud data received', data);
+        return data.record.orders || [];
+    } catch (error) {
+        debugLog('Error fetching orders:', error);
+        throw error;
+    }
+}
+
+async function saveCloudOrders(orders) {
+    debugLog('Saving orders to cloud...', orders);
+    try {
+        const response = await fetch(`${CONFIG.API_URL}/b/${CONFIG.BIN_ID}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': CONFIG.JSONBIN_API_KEY
+            },
+            body: JSON.stringify({ orders: orders })
+        });
+        
+        debugLog('Save response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return await response.json();
+    } catch (error) {
+        debugLog('Error saving orders:', error);
+        throw error;
+    }
+}
+
+// ================== ORDER SUBMISSION ==================
+async function submitOrder() {
+    const nameInput = document.getElementById('clientName');
+    const phoneInput = document.getElementById('clientPhone');
+    const addressInput = document.getElementById('clientAddress');
+    const sizeSelect = document.getElementById('containerSize');
+    const qtyInput = document.getElementById('quantity');
+    
+    if (!nameInput || !phoneInput || !addressInput || !sizeSelect || !qtyInput) {
+        showError('Form elements not found');
+        return;
+    }
+    
+    const name = nameInput.value.trim();
+    const phone = phoneInput.value.trim();
+    const address = addressInput.value.trim();
+    const size = sizeSelect.value;
+    const qty = parseInt(qtyInput.value);
+    const total = calculateTotal();
+    
+    // Validation
+    if (!name) {
+        showError('Please enter your name');
+        nameInput.focus();
+        return;
+    }
+    
+    if (!phone) {
+        showError('Please enter your phone number');
+        phoneInput.focus();
+        return;
+    }
+    
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.length < 10 || cleanPhone.length > 11) {
+        showError('Please enter a valid 10-11 digit phone number');
+        phoneInput.focus();
+        return;
+    }
+    
+    if (!address) {
+        showError('Please enter your delivery address');
+        addressInput.focus();
+        return;
+    }
+    
+    // Save locally
+    saveCustomerInfo();
+    
+    // Show loading
+    showLoading(true);
+    
+    try {
+        debugLog('Starting order submission...');
+        
+        // Get existing orders
+        let existingOrders = [];
+        try {
+            existingOrders = await getCloudOrders();
+            debugLog('Existing orders:', existingOrders);
+        } catch (fetchError) {
+            debugLog('Could not fetch existing orders, creating new array');
+            existingOrders = [];
+        }
+        
+        // Create new order
+        const timestamp = Date.now();
+        const orderId = 'ORD_' + timestamp.toString().slice(-8) + '_' + 
+                       Math.random().toString(36).substr(2, 4).toUpperCase();
+        
+        const newOrder = {
+            id: orderId,
+            customerId: customerId,
+            customerName: name,
+            customerPhone: cleanPhone,
+            customerAddress: address,
+            containerSize: size + ' Gallon',
+            containerValue: parseInt(size),
+            quantity: qty,
+            totalAmount: total,
+            status: 'pending',
+            orderDate: new Date().toISOString(),
+            timestamp: timestamp,
+            source: 'online',
+            syncedToAdmin: false
+        };
+        
+        debugLog('New order created:', newOrder);
+        
+        // Add to orders array
+        existingOrders.push(newOrder);
+        
+        // Save to cloud
+        await saveCloudOrders(existingOrders);
+        debugLog('Order saved to cloud successfully');
+        
+        // Save to local storage for backup
+        let myOrders = JSON.parse(localStorage.getItem('pureflow_my_orders') || '[]');
+        myOrders.push({
+            ...newOrder,
+            savedLocally: true
+        });
+        localStorage.setItem('pureflow_my_orders', JSON.stringify(myOrders));
+        
+        // Hide loading
+        showLoading(false);
+        
+        // Show success
+        showSuccess(true, orderId, phone);
+        
+    } catch (error) {
+        showLoading(false);
+        showError('Error placing order: ' + error.message + '. Please try again or call us directly.');
+        debugLog('Order submission error:', error);
+    }
+}
+
+function placeAnotherOrder() {
+    showSuccess(false);
+    const orderCard = document.querySelector('.order-card');
+    if (orderCard) orderCard.style.display = 'block';
+    
+    const qtyInput = document.getElementById('quantity');
+    if (qtyInput) qtyInput.value = 1;
+    
+    calculateTotal();
+}
+
+// ================== INITIALIZATION ==================
+document.addEventListener('DOMContentLoaded', function() {
+    debugLog('Page loaded, initializing...');
+    
+    // Load saved customer info
+    if (customerInfo.name) {
+        const nameInput = document.getElementById('clientName');
+        const phoneInput = document.getElementById('clientPhone');
+        const addressInput = document.getElementById('clientAddress');
+        
+        if (nameInput) nameInput.value = customerInfo.name || '';
+        if (phoneInput) phoneInput.value = customerInfo.phone || '';
+        if (addressInput) addressInput.value = customerInfo.address || '';
+        
+        debugLog('Loaded saved customer info', customerInfo);
+    }
+    
+    // Set up event listeners
+    const nameInput = document.getElementById('clientName');
+    const phoneInput = document.getElementById('clientPhone');
+    const addressInput = document.getElementById('clientAddress');
+    const sizeSelect = document.getElementById('containerSize');
+    
+    if (nameInput) nameInput.addEventListener('input', saveCustomerInfo);
+    if (phoneInput) phoneInput.addEventListener('input', saveCustomerInfo);
+    if (addressInput) addressInput.addEventListener('input', saveCustomerInfo);
+    if (sizeSelect) sizeSelect.addEventListener('change', calculateTotal);
+    
+    // Calculate initial total
+    calculateTotal();
+    
+    // Test connection automatically after 2 seconds
+    setTimeout(testConnection, 2000);
+    
+    console.log('✅ PureFlow Online Client Ready');
+    console.log('📱 Customer ID:', customerId);
+    console.log('🌐 API URL:', CONFIG.API_URL);
+    console.log('🔑 API Key:', CONFIG.JSONBIN_API_KEY ? '✓ Configured' : '✗ MISSING');
+    console.log('📦 Bin ID:', CONFIG.BIN_ID ? '✓ Configured' : '✗ MISSING');
+    console.log('🐛 Debug Mode:', CONFIG.DEBUG ? 'ON' : 'OFF');
+});
+
+// Make functions global for onclick handlers
+window.testConnection = testConnection;
+window.submitOrder = submitOrder;
+window.placeAnotherOrder = placeAnotherOrder;
+window.changeQty = changeQty;
+window.calculateTotal = calculateTotal;
 // ================== GLOBAL VARIABLES ==================
 let customerId = localStorage.getItem('pureflow_customer_id');
 if (!customerId) {
