@@ -100,14 +100,14 @@ async function testConnection() {
     
     testResult.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing connection...';
     
-    try {
-        const headers = await getHeaders();
-        debugLog('Headers:', headers);
+    //try {
+    //    const headers = await getHeaders();
+    //    debugLog('Headers:', headers);
         
-        const response = await fetch(`${CONFIG.API_URL}/b/${CONFIG.BIN_ID}/latest`, {
-            method: 'GET',
-            headers: headers
-        });
+    //    const response = await fetch(`${CONFIG.API_URL}/b/${CONFIG.BIN_ID}/latest`, {
+    //        method: 'GET',
+    //        headers: headers
+    //    });
         
         debugLog('Response status:', response.status);
         
