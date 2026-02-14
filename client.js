@@ -67,9 +67,9 @@ function changeQty(delta) {
 
 function saveCustomerInfo() {
     customerInfo = {
-        name: document.getElementById('clientName').value.trim(),
-        phone: document.getElementById('clientPhone').value.trim(),
-        address: document.getElementById('clientAddress').value.trim()
+        name: document.getElementById('Name').value.trim(),
+        phone: document.getElementById('Phone').value.trim(),
+        address: document.getElementById('Address').value.trim()
     };
     localStorage.setItem('pureflow_customer', JSON.stringify(customerInfo));
     debugLog('Customer info saved', customerInfo);
@@ -154,9 +154,9 @@ async function saveCloudOrders(orders) {
 
 // ================== ORDER SUBMISSION ==================
 async function submitOrder() {
-    const name = document.getElementById('clientName').value.trim();
-    const phone = document.getElementById('clientPhone').value.trim();
-    const address = document.getElementById('clientAddress').value.trim();
+    const name = document.getElementById('Name').value.trim();
+    const phone = document.getElementById('Phone').value.trim();
+    const address = document.getElementById('Address').value.trim();
     const size = document.getElementById('containerSize').value;
     const qty = parseInt(document.getElementById('quantity').value);
     const total = calculateTotal();
@@ -164,25 +164,25 @@ async function submitOrder() {
     // Validation
     if (!name) {
         showError('Please enter your name');
-        document.getElementById('clientName').focus();
+        document.getElementById('Name').focus();
         return;
     }
     
     if (!phone) {
         showError('Please enter your phone number');
-        document.getElementById('clientPhone').focus();
+        document.getElementById('Phone').focus();
         return;
     }
     
     if (phone.replace(/[^0-9]/g, '').length < 10) {
         showError('Please enter a valid 10-11 digit phone number');
-        document.getElementById('clientPhone').focus();
+        document.getElementById('Phone').focus();
         return;
     }
     
     if (!address) {
         showError('Please enter your delivery address');
-        document.getElementById('clientAddress').focus();
+        document.getElementById('Address').focus();
         return;
     }
     
@@ -268,16 +268,16 @@ window.onload = function() {
     
     // Load saved customer info
     if (customerInfo.name) {
-        document.getElementById('clientName').value = customerInfo.name;
-        document.getElementById('clientPhone').value = customerInfo.phone;
-        document.getElementById('clientAddress').value = customerInfo.address;
+        document.getElementById('Name').value = customerInfo.name;
+        document.getElementById('Phone').value = customerInfo.phone;
+        document.getElementById('Address').value = customerInfo.address;
         debugLog('Loaded saved customer info', customerInfo);
     }
     
     // Set up event listeners
-    document.getElementById('clientName').addEventListener('input', saveCustomerInfo);
-    document.getElementById('clientPhone').addEventListener('input', saveCustomerInfo);
-    document.getElementById('clientAddress').addEventListener('input', saveCustomerInfo);
+    document.getElementById('Name').addEventListener('input', saveCustomerInfo);
+    document.getElementById('Phone').addEventListener('input', saveCustomerInfo);
+    document.getElementById('Address').addEventListener('input', saveCustomerInfo);
     document.getElementById('containerSize').addEventListener('change', calculateTotal);
     
     // Calculate initial total
@@ -286,7 +286,7 @@ window.onload = function() {
     // Test connection automatically
     setTimeout(testConnection, 1000);
     
-    console.log('✅ PureFlow Online Client Ready - Customer ID:', customerId);
+    console.log('✅ PureFlow Online  Ready - Customer ID:', customerId);
     console.log('🌐 API URL:', CONFIG.API_URL);
     console.log('🔑 API Key:', CONFIG.JSONBIN_API_KEY ? 'Configured' : 'MISSING');
     console.log('📦 Bin ID:', CONFIG.BIN_ID ? 'Configured' : 'MISSING');
