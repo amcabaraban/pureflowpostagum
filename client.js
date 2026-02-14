@@ -18,10 +18,10 @@ if (!customerId) {
 let customerInfo = JSON.parse(localStorage.getItem('pureflow_customer') || '{}');
 
 // ================== DEBUG FUNCTION ==================
-function debugLog(message, data) {
-    if (CONFIG.DEBUG) {
-        console.log(`🔍 [DEBUG] ${message}`, data || '');
-    }
+//function debugLog(message, data) {
+//    if (CONFIG.DEBUG) {
+//        console.log(`🔍 [DEBUG] ${message}`, data || '');
+//    }
 }
 
 // ================== UI FUNCTIONS ==================
