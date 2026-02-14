@@ -1,7 +1,7 @@
 // client.js - PureFlow Online Client
 // ================== CONFIGURATION ==================
 const CONFIG = {
-    JSONBIN_API_KEY: '$2a$10$U8BrH5EcRobDpvnrqoD2UecdqTerHvqEMbH.xkf9IO8HYL3ICvhAC',
+    JSONBIN_API_KEY: '$2a$10$U8BrH5EcRobDpvnrqoD2UecdqTerHvgEMbh.xkf9I08HYL3ICvhAC',
     BIN_ID: '699089c0d0ea881f40ba2fcf',
     API_URL: 'https://api.jsonbin.io/v3',
     DEBUG: true
