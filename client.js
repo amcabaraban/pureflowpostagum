@@ -5,7 +5,6 @@ const CONFIG = {
     JSONBIN_API_KEY: '$2a$10$3mqRHpEXrn2wWNe1K2h4cuHjnlNzZP8HdJZeEvczm1LPTT/0nJoVK', // Get from jsonbin.io
     BIN_ID: '69906fa1d0ea881f40b9fe97', // Your bin ID
     API_URL: 'https://api.jsonbin.io/v3',
-    DEBUG: true // Set to false in production
 };
 
 // ================== GLOBAL VARIABLES ==================
