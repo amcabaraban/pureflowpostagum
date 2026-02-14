@@ -2,7 +2,7 @@
 // ================== CONFIGURATION ==================
 // !!! IMPORTANT: REPLACE WITH YOUR ACTUAL JSONBIN.IO CREDENTIALS !!!
 const CONFIG = {
-    JSONBIN_API_KEY: '$2a$10$3mqRHpEXrn2wWNe1K2h4cuHjnlNzZP8HdJZeEvczm1LPTT/0nJoVK', // Get from jsonbin.io
+    JSONBIN_API_KEY: '$2a$10$U8BrH5EcRobDpvnrqoD2UecdqTerHvqEMbH.xkf9IO8HYL3ICvhAC', // Get from jsonbin.io
     BIN_ID: '699089c0d0ea881f40ba2fcf', // Your bin ID
     API_URL: 'https://api.jsonbin.io/v3',
     DEBUG: true // <-- Make sure there's a comma after API_URL line
