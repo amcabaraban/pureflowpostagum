@@ -1590,7 +1590,7 @@ function updatePerformanceMetrics() {
     }
 }
 
-// ================== CUSTOMER TOTAL SPENT FUNCTIONS ==================
+// ================== CUSTOMER MANAGEMENT FUNCTIONS ==================
 
 /**
  * Recalculates total spent for all customers based on sales data
@@ -1679,6 +1679,161 @@ function formatCurrency(amount) {
     return '₱' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
 }
 
+/**
+ * Shows the edit customer modal for admin users only
+ * @param {number} customerId - The ID of the customer to edit
+ */
+function showEditCustomerModal(customerId) {
+    if (!checkAdminPermission('edit customers')) return;
+    
+    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+    const customer = customers.find(c => c.id === customerId);
+    
+    if (!customer) {
+        showToast('Customer not found', 'error');
+        return;
+    }
+    
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.id = 'editCustomerModal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <div class="modal-logo-title">
+                    <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
+                    <h3><i class="fas fa-edit"></i> Edit Customer</h3>
+                </div>
+                <button class="modal-close" onclick="closeEditCustomerModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-user"></i> Name *</label>
+                    <input type="text" id="editCustomerName" class="form-input" value="${customer.name}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-phone"></i> Phone</label>
+                    <input type="text" id="editCustomerPhone" class="form-input" value="${customer.phone || ''}" placeholder="Enter phone number">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-map-marker-alt"></i> Address</label>
+                    <input type="text" id="editCustomerAddress" class="form-input" value="${customer.address || ''}" placeholder="Enter address">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label"><i class="fas fa-tag"></i> Type</label>
+                    <select id="editCustomerType" class="form-select">
+                        <option value="regular" ${customer.type === 'regular' ? 'selected' : ''}>Regular</option>
+                        <option value="suki" ${customer.type === 'suki' ? 'selected' : ''}>Suki</option>
+                    </select>
+                </div>
+                
+                <div class="info-box" style="background: #e8f4fd; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                    <h4 style="margin: 0 0 10px 0; color: #0056b3;"><i class="fas fa-chart-line"></i> Customer Statistics</h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div>
+                            <strong>Total Spent:</strong><br>
+                            ${formatCurrency(customer.totalSpent || 0)}
+                        </div>
+                        <div>
+                            <strong>Purchase Count:</strong><br>
+                            ${customer.purchaseCount || 0}
+                        </div>
+                        <div>
+                            <strong>Last Purchase:</strong><br>
+                            ${customer.lastPurchase ? new Date(customer.lastPurchase).toLocaleDateString() : 'Never'}
+                        </div>
+                        <div>
+                            <strong>Added On:</strong><br>
+                            ${customer.dateAdded ? new Date(customer.dateAdded).toLocaleDateString() : 'N/A'}
+                        </div>
+                    </div>
+                </div>
+                
+                <input type="hidden" id="editCustomerId" value="${customer.id}">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="saveCustomerEdit()">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>
+                <button class="btn-secondary" onclick="closeEditCustomerModal()">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', function(e) {
+        if (e.target === this) closeEditCustomerModal();
+    });
+}
+
+/**
+ * Closes the edit customer modal
+ */
+function closeEditCustomerModal() {
+    const modal = document.getElementById('editCustomerModal');
+    if (modal) modal.remove();
+}
+
+/**
+ * Saves customer edits (admin only)
+ */
+function saveCustomerEdit() {
+    if (!checkAdminPermission('edit customers')) return;
+    
+    const customerId = parseInt(document.getElementById('editCustomerId').value);
+    const newName = document.getElementById('editCustomerName').value.trim();
+    const newPhone = document.getElementById('editCustomerPhone').value.trim();
+    const newAddress = document.getElementById('editCustomerAddress').value.trim();
+    const newType = document.getElementById('editCustomerType').value;
+    
+    if (!newName) {
+        showToast('Customer name is required', 'error');
+        return;
+    }
+    
+    let customers = JSON.parse(localStorage.getItem('customers') || '[]');
+    const customerIndex = customers.findIndex(c => c.id === customerId);
+    
+    if (customerIndex === -1) {
+        showToast('Customer not found', 'error');
+        closeEditCustomerModal();
+        return;
+    }
+    
+    // Check if name already exists (but allow if it's the same customer)
+    const nameExists = customers.some(c => 
+        c.name.toLowerCase() === newName.toLowerCase() && c.id !== customerId
+    );
+    
+    if (nameExists) {
+        showToast('Another customer with this name already exists', 'error');
+        return;
+    }
+    
+    // Update customer
+    customers[customerIndex].name = newName;
+    customers[customerIndex].phone = newPhone;
+    customers[customerIndex].address = newAddress;
+    customers[customerIndex].type = newType;
+    customers[customerIndex].lastUpdated = new Date().toISOString();
+    customers[customerIndex].updatedBy = currentUser ? currentUser.username : 'system';
+    
+    localStorage.setItem('customers', JSON.stringify(customers));
+    
+    closeEditCustomerModal();
+    loadCustomers();
+    updateCustomerSuggestions();
+    showToast('Customer updated successfully', 'success');
+}
+
 // ================== DATA INITIALIZATION ==================
 function initializeSampleData() {
     if (!localStorage.getItem('customers')) {
@@ -1691,7 +1846,9 @@ function initializeSampleData() {
                 type: 'suki',
                 totalSpent: 1500,
                 purchaseCount: 10,
-                lastPurchase: new Date().toISOString()
+                lastPurchase: new Date().toISOString(),
+                dateAdded: new Date().toISOString(),
+                addedBy: 'system'
             },
             {
                 id: 2,
@@ -1701,7 +1858,9 @@ function initializeSampleData() {
                 type: 'regular',
                 totalSpent: 750,
                 purchaseCount: 5,
-                lastPurchase: new Date().toISOString()
+                lastPurchase: new Date().toISOString(),
+                dateAdded: new Date().toISOString(),
+                addedBy: 'system'
             }
         ];
         localStorage.setItem('customers', JSON.stringify(sampleCustomers));
@@ -1909,6 +2068,7 @@ function showApp() {
     if (isAdmin()) {
         setTimeout(() => {
             addSyncFulfilledButton();
+            addRecalculateTotalsButton();
         }, 2000);
     }
 }
@@ -1984,7 +2144,7 @@ function updateTablePermissions() {
         });
     }
     
-    // Update customers table
+    // Update customers table - show edit button for admin only
     const customersTable = document.getElementById('customersTable');
     if (customersTable) {
         const rows = customersTable.querySelectorAll('tr');
@@ -1994,6 +2154,9 @@ function updateTablePermissions() {
                 deleteBtn.style.display = 'none';
                 deleteBtn.disabled = true;
             }
+            
+            // Edit button is already in the HTML from loadCustomers()
+            // No need to modify here
         });
     }
 }
@@ -2252,7 +2415,7 @@ function loadCustomers() {
     if (customers.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
+                <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
                     <i class="fas fa-users-slash" style="font-size: 48px; margin-bottom: 10px; opacity: 0.3;"></i><br>
                     No customers yet. Click "Add New Customer" to add one.
                 </td>
@@ -2270,18 +2433,49 @@ function loadCustomers() {
         // Format the total spent with commas for thousands
         const formattedTotal = formatCurrency(customer.totalSpent || 0);
         
+        // Action buttons based on user role
+        let actionButtons = '';
+        if (isAdmin()) {
+            actionButtons = `
+                <div class="action-buttons">
+                    <button class="action-btn edit" onclick="showEditCustomerModal(${customer.id})" title="Edit Customer">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete" onclick="deleteCustomer(${customer.id})" title="Delete Customer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        } else if (isCashier()) {
+            actionButtons = `
+                <div class="action-buttons">
+                    <button class="action-btn view" onclick="showEditCustomerModal(${customer.id})" title="View Customer (Read Only)" style="background: #17a2b8;">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="action-btn delete" disabled title="Cashiers cannot delete" style="opacity: 0.5; cursor: not-allowed;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        } else {
+            actionButtons = `
+                <div class="action-buttons">
+                    <button class="action-btn view" onclick="showEditCustomerModal(${customer.id})" title="View Customer">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            `;
+        }
+        
         row.innerHTML = `
             <td><strong>${customer.name}</strong></td>
             <td>${customer.phone || '<span style="color:#999; font-style:italic;">No phone</span>'}</td>
             <td>${customer.address || '<span style="color:#999; font-style:italic;">No address</span>'}</td>
             <td><span class="customer-type ${customer.type}">${customer.type.toUpperCase()}</span></td>
             <td><strong>${formattedTotal}</strong></td>
+            <td>${customer.purchaseCount || 0}</td>
             <td>
-                <div class="action-buttons">
-                    <button class="action-btn delete" onclick="deleteCustomer(${customer.id})">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                </div>
+                ${actionButtons}
             </td>
         `;
         tableBody.appendChild(row);
@@ -2306,7 +2500,7 @@ function filterCustomers() {
     if (filteredCustomers.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="6" style="text-align: center; padding: 20px; color: #666;">
+                <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
                     No customers found matching "${searchTerm}"
                 </td>
             </tr>
@@ -2318,18 +2512,49 @@ function filterCustomers() {
         const row = document.createElement('tr');
         const formattedTotal = formatCurrency(customer.totalSpent || 0);
         
+        // Action buttons based on user role
+        let actionButtons = '';
+        if (isAdmin()) {
+            actionButtons = `
+                <div class="action-buttons">
+                    <button class="action-btn edit" onclick="showEditCustomerModal(${customer.id})" title="Edit Customer">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete" onclick="deleteCustomer(${customer.id})" title="Delete Customer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        } else if (isCashier()) {
+            actionButtons = `
+                <div class="action-buttons">
+                    <button class="action-btn view" onclick="showEditCustomerModal(${customer.id})" title="View Customer (Read Only)" style="background: #17a2b8;">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="action-btn delete" disabled title="Cashiers cannot delete" style="opacity: 0.5; cursor: not-allowed;">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `;
+        } else {
+            actionButtons = `
+                <div class="action-buttons">
+                    <button class="action-btn view" onclick="showEditCustomerModal(${customer.id})" title="View Customer">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            `;
+        }
+        
         row.innerHTML = `
             <td><strong>${customer.name}</strong></td>
             <td>${customer.phone || '<span style="color:#999; font-style:italic;">No phone</span>'}</td>
             <td>${customer.address || '<span style="color:#999; font-style:italic;">No address</span>'}</td>
             <td><span class="customer-type ${customer.type}">${customer.type.toUpperCase()}</span></td>
             <td><strong>${formattedTotal}</strong></td>
+            <td>${customer.purchaseCount || 0}</td>
             <td>
-                <div class="action-buttons">
-                    <button class="action-btn delete" onclick="deleteCustomer(${customer.id})">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                </div>
+                ${actionButtons}
             </td>
         `;
         tableBody.appendChild(row);
@@ -2406,7 +2631,7 @@ function generateReport() {
     if (filteredSales.length === 0) {
         reportBody.innerHTML = `
             <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
+                <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
                     <i class="fas fa-chart-line" style="font-size: 48px; margin-bottom: 10px; opacity: 0.3;"></i><br>
                     No sales data for selected period
                 </td>
@@ -2456,6 +2681,7 @@ function generateReport() {
             <td><span class="customer-type ${sale.type}">${sale.type}</span></td>
             <td>${sale.quantity}</td>
             <td>₱${sale.amount.toFixed(2)}</td>
+            <td>${sale.processedBy || 'N/A'}</td>
             <td>
                 <div class="action-buttons">
                     ${voidButton}
@@ -2668,11 +2894,14 @@ function createSaleFromOrder(order) {
     
     // Determine customer type (suki or regular) based on customer data if available
     let customerType = 'regular';
+    let customerExists = false;
+    
     if (order.clientName) {
         const customers = JSON.parse(localStorage.getItem('customers') || '[]');
         const customer = customers.find(c => c.name.toLowerCase() === order.clientName.toLowerCase());
         if (customer) {
             customerType = customer.type || 'regular';
+            customerExists = true;
         }
     }
     
@@ -3957,16 +4186,6 @@ function addSyncFulfilledButton() {
     dataManagementSection.appendChild(buttonContainer);
 }
 
-// ================== NAVIGATION FUNCTIONS ==================
-
-function showAllSales() {
-    showTab('reports');
-}
-
-function showAllCustomers() {
-    showTab('customers');
-}
-
 // ================== RECALCULATE ALL CUSTOMER TOTALS BUTTON ==================
 
 function addRecalculateTotalsButton() {
@@ -3998,6 +4217,16 @@ function recalculateAndRefreshCustomers() {
     recalculateAllCustomerTotals();
     loadCustomers();
     showToast('✅ Customer totals recalculated successfully', 'success');
+}
+
+// ================== NAVIGATION FUNCTIONS ==================
+
+function showAllSales() {
+    showTab('reports');
+}
+
+function showAllCustomers() {
+    showTab('customers');
 }
 
 // Call this function after admin logs in
