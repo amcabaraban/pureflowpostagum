@@ -1063,7 +1063,7 @@ function loadRecentSales() {
 function loadTopCustomers() {
     const customers = JSON.parse(localStorage.getItem('customers') || '[]');
     const topCustomers = customers
-        .sort((a, b) => b.totalSpent - a.totalSpent)
+        .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
         .slice(0, 5);
     
     const tableBody = document.getElementById('topCustomersTable');
@@ -1096,8 +1096,8 @@ function loadTopCustomers() {
         row.innerHTML = `
             <td><strong>${rankIcon}</strong></td>
             <td><strong>${customer.name}</strong></td>
-            <td>₱${customer.totalSpent.toFixed(2)}</td>
-            <td>${customer.purchaseCount || 1}</td>
+            <td>${formatCurrency(customer.totalSpent || 0)}</td>
+            <td>${customer.purchaseCount || 0}</td>
         `;
         tableBody.appendChild(row);
     });
@@ -1502,7 +1502,7 @@ function updatePerformanceMetrics() {
         : 0;
     
     // Calculate retention rate (customers with more than 1 purchase)
-    const repeatCustomers = customers.filter(c => c.purchaseCount > 1).length;
+    const repeatCustomers = customers.filter(c => (c.purchaseCount || 0) > 1).length;
     const retentionRate = customers.length > 0 
         ? (repeatCustomers / customers.length * 100).toFixed(1) 
         : 0;
@@ -1590,6 +1590,95 @@ function updatePerformanceMetrics() {
     }
 }
 
+// ================== CUSTOMER TOTAL SPENT FUNCTIONS ==================
+
+/**
+ * Recalculates total spent for all customers based on sales data
+ * This ensures customer totals are accurate and up-to-date
+ */
+function recalculateAllCustomerTotals() {
+    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+    
+    customers.forEach(customer => {
+        // Get all sales for this customer
+        const customerSales = sales.filter(sale => 
+            sale.customer && sale.customer.toLowerCase() === customer.name.toLowerCase()
+        );
+        
+        // Calculate total spent and purchase count
+        const totalSpent = customerSales.reduce((sum, sale) => sum + sale.amount, 0);
+        const purchaseCount = customerSales.length;
+        
+        // Update customer object
+        customer.totalSpent = totalSpent;
+        customer.purchaseCount = purchaseCount;
+        
+        // Update last purchase date if there are sales
+        if (customerSales.length > 0) {
+            const lastSale = customerSales.sort((a, b) => 
+                new Date(b.timestamp) - new Date(a.timestamp)
+            )[0];
+            customer.lastPurchase = lastSale.date || lastSale.timestamp;
+        }
+    });
+    
+    // Save updated customers back to localStorage
+    localStorage.setItem('customers', JSON.stringify(customers));
+    
+    console.log('✅ Customer totals recalculated');
+    return customers;
+}
+
+/**
+ * Updates a single customer's total spent based on their sales
+ * @param {string} customerName - The name of the customer to update
+ */
+function updateCustomerTotal(customerName) {
+    if (!customerName || customerName === 'Walk-in' || customerName === 'Online Customer') return;
+    
+    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+    
+    const customerIndex = customers.findIndex(c => 
+        c.name.toLowerCase() === customerName.toLowerCase()
+    );
+    
+    if (customerIndex === -1) return;
+    
+    // Get all sales for this customer
+    const customerSales = sales.filter(sale => 
+        sale.customer && sale.customer.toLowerCase() === customerName.toLowerCase()
+    );
+    
+    // Calculate total spent and purchase count
+    const totalSpent = customerSales.reduce((sum, sale) => sum + sale.amount, 0);
+    const purchaseCount = customerSales.length;
+    
+    // Update customer
+    customers[customerIndex].totalSpent = totalSpent;
+    customers[customerIndex].purchaseCount = purchaseCount;
+    
+    // Update last purchase date if there are sales
+    if (customerSales.length > 0) {
+        const lastSale = customerSales.sort((a, b) => 
+            new Date(b.timestamp) - new Date(a.timestamp)
+        )[0];
+        customers[customerIndex].lastPurchase = lastSale.date || lastSale.timestamp;
+    }
+    
+    localStorage.setItem('customers', JSON.stringify(customers));
+}
+
+/**
+ * Formats currency for display
+ * @param {number} amount - The amount to format
+ * @returns {string} Formatted currency string
+ */
+function formatCurrency(amount) {
+    return '₱' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+}
+
 // ================== DATA INITIALIZATION ==================
 function initializeSampleData() {
     if (!localStorage.getItem('customers')) {
@@ -1619,8 +1708,34 @@ function initializeSampleData() {
     }
     
     if (!localStorage.getItem('sales')) {
-        // Initialize empty sales array - sales will only be created from fulfilled orders
-        localStorage.setItem('sales', JSON.stringify([]));
+        // Initialize with sample sales that match customer totals
+        const sampleSales = [
+            {
+                id: 1,
+                customer: 'Juan Dela Cruz',
+                type: 'suki',
+                quantity: 100,
+                amount: 1500,
+                date: new Date().toISOString(),
+                timestamp: Date.now() - 86400000,
+                processedBy: 'admin',
+                userRole: 'admin',
+                source: 'in-store'
+            },
+            {
+                id: 2,
+                customer: 'Maria Santos',
+                type: 'regular',
+                quantity: 50,
+                amount: 750,
+                date: new Date().toISOString(),
+                timestamp: Date.now() - 172800000,
+                processedBy: 'admin',
+                userRole: 'admin',
+                source: 'in-store'
+            }
+        ];
+        localStorage.setItem('sales', JSON.stringify(sampleSales));
     }
     
     if (!localStorage.getItem('users')) {
@@ -1789,6 +1904,13 @@ function showApp() {
     
     // Add void button for admin
     addVoidButtonToNav();
+    
+    // Add sync fulfilled orders button for admin
+    if (isAdmin()) {
+        setTimeout(() => {
+            addSyncFulfilledButton();
+        }, 2000);
+    }
 }
 
 function showClientInterface() {
@@ -2117,6 +2239,9 @@ function addNewCustomer() {
 }
 
 function loadCustomers() {
+    // First, recalculate all customer totals to ensure accuracy
+    recalculateAllCustomerTotals();
+    
     const customers = JSON.parse(localStorage.getItem('customers') || '[]');
     const tableBody = document.getElementById('customersTable');
     
@@ -2136,14 +2261,21 @@ function loadCustomers() {
         return;
     }
     
+    // Sort customers by total spent (highest first)
+    customers.sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0));
+    
     customers.forEach(customer => {
         const row = document.createElement('tr');
+        
+        // Format the total spent with commas for thousands
+        const formattedTotal = formatCurrency(customer.totalSpent || 0);
+        
         row.innerHTML = `
             <td><strong>${customer.name}</strong></td>
             <td>${customer.phone || '<span style="color:#999; font-style:italic;">No phone</span>'}</td>
             <td>${customer.address || '<span style="color:#999; font-style:italic;">No address</span>'}</td>
-            <td><span class="customer-type ${customer.type}">${customer.type}</span></td>
-            <td>₱${customer.totalSpent.toFixed(2)}</td>
+            <td><span class="customer-type ${customer.type}">${customer.type.toUpperCase()}</span></td>
+            <td><strong>${formattedTotal}</strong></td>
             <td>
                 <div class="action-buttons">
                     <button class="action-btn delete" onclick="deleteCustomer(${customer.id})">
@@ -2184,12 +2316,14 @@ function filterCustomers() {
     
     filteredCustomers.forEach(customer => {
         const row = document.createElement('tr');
+        const formattedTotal = formatCurrency(customer.totalSpent || 0);
+        
         row.innerHTML = `
             <td><strong>${customer.name}</strong></td>
             <td>${customer.phone || '<span style="color:#999; font-style:italic;">No phone</span>'}</td>
             <td>${customer.address || '<span style="color:#999; font-style:italic;">No address</span>'}</td>
-            <td><span class="customer-type ${customer.type}">${customer.type}</span></td>
-            <td>₱${customer.totalSpent.toFixed(2)}</td>
+            <td><span class="customer-type ${customer.type}">${customer.type.toUpperCase()}</span></td>
+            <td><strong>${formattedTotal}</strong></td>
             <td>
                 <div class="action-buttons">
                     <button class="action-btn delete" onclick="deleteCustomer(${customer.id})">
@@ -2345,9 +2479,19 @@ function deleteSale(saleId) {
     
     if (!confirm('Are you sure you want to delete this sale?')) return;
     
-    let sales = JSON.parse(localStorage.getItem('sales') || '[]');
-    sales = sales.filter(s => s.id !== saleId);
-    localStorage.setItem('sales', JSON.stringify(sales));
+    // Get the sale before deleting to update customer totals
+    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
+    const sale = sales.find(s => s.id === saleId);
+    
+    // Remove the sale
+    let updatedSales = sales.filter(s => s.id !== saleId);
+    localStorage.setItem('sales', JSON.stringify(updatedSales));
+    
+    // Update customer total if applicable
+    if (sale && sale.customer && sale.customer !== 'Walk-in' && sale.customer !== 'Online Customer') {
+        updateCustomerTotal(sale.customer);
+    }
+    
     updateTodaySummary();
     generateReport();
     showToast('Sale deleted successfully', 'success');
@@ -2552,15 +2696,27 @@ function createSaleFromOrder(order) {
     
     // Update customer total spent if customer exists
     if (order.clientName && order.clientName !== 'Online Customer' && order.clientName !== 'Walk-in') {
+        updateCustomerTotal(order.clientName);
+    } else if (!customerExists && order.clientName && order.clientName !== 'Online Customer' && order.clientName !== 'Walk-in') {
+        // If customer doesn't exist but we have a name, create a new customer record
         let customers = JSON.parse(localStorage.getItem('customers') || '[]');
-        const existingCustomer = customers.find(c => 
-            c.name.toLowerCase() === order.clientName.toLowerCase()
-        );
+        const existingCustomer = customers.find(c => c.name.toLowerCase() === order.clientName.toLowerCase());
         
-        if (existingCustomer) {
-            existingCustomer.totalSpent = (existingCustomer.totalSpent || 0) + parseFloat(order.totalAmount);
-            existingCustomer.purchaseCount = (existingCustomer.purchaseCount || 0) + 1;
-            existingCustomer.lastPurchase = new Date().toISOString();
+        if (!existingCustomer) {
+            const newCustomer = {
+                id: Date.now(),
+                name: order.clientName,
+                phone: order.clientPhone || '',
+                address: order.clientAddress || '',
+                type: 'regular',
+                totalSpent: parseFloat(order.totalAmount),
+                purchaseCount: 1,
+                lastPurchase: new Date().toISOString(),
+                dateAdded: new Date().toISOString(),
+                addedBy: currentUser ? currentUser.username : 'system',
+                addedByRole: currentUser ? currentUser.role : 'system'
+            };
+            customers.push(newCustomer);
             localStorage.setItem('customers', JSON.stringify(customers));
         }
     }
@@ -2603,6 +2759,7 @@ function saveOrderUpdate() {
         // - Dashboard metrics
         // - Daily sales report
         // - Summary statistics
+        // - Customer totals
         createSaleFromOrder(orders[index]);
     } else {
         orders[index].fulfilled = false;
@@ -2625,6 +2782,11 @@ function saveOrderUpdate() {
     }
     updateTodaySummary();
     generateReport();
+    
+    // Refresh customers if the tab is active to update totals
+    if (document.getElementById('customers').classList.contains('active')) {
+        loadCustomers();
+    }
     
     showToast(`Order status updated from "${oldStatus}" to "${status}" successfully`, 'success');
 }
@@ -2671,6 +2833,7 @@ function syncExistingFulfilledOrders() {
     }
     generateReport();
     updateTodaySummary();
+    loadCustomers(); // Refresh customer totals
 }
 
 // ================== CLIENT ORDERING ==================
@@ -3597,13 +3760,7 @@ function voidTransaction(saleId) {
     
     // Update customer totals if applicable
     if (sale.customer && sale.customer !== 'Walk-in' && sale.customer !== 'Online Customer') {
-        let customers = JSON.parse(localStorage.getItem('customers') || '[]');
-        const customer = customers.find(c => c.name.toLowerCase() === sale.customer.toLowerCase());
-        if (customer) {
-            customer.totalSpent -= sale.amount;
-            customer.purchaseCount -= 1;
-            localStorage.setItem('customers', JSON.stringify(customers));
-        }
+        updateCustomerTotal(sale.customer);
     }
     
     closeVoidTransactionModal();
@@ -3611,6 +3768,9 @@ function voidTransaction(saleId) {
     generateReport();
     if (document.getElementById('dashboard').classList.contains('active')) {
         loadDashboardData();
+    }
+    if (document.getElementById('customers').classList.contains('active')) {
+        loadCustomers();
     }
     
     showToast('Transaction voided successfully', 'success');
@@ -3772,16 +3932,6 @@ function addVoidButtonToNav() {
     }
 }
 
-// ================== NAVIGATION FUNCTIONS ==================
-
-function showAllSales() {
-    showTab('reports');
-}
-
-function showAllCustomers() {
-    showTab('customers');
-}
-
 // ================== ADD SYNC FULFILLED ORDERS BUTTON FOR ADMIN ==================
 
 function addSyncFulfilledButton() {
@@ -3800,16 +3950,60 @@ function addSyncFulfilledButton() {
             <i class="fas fa-sync-alt"></i> Sync Fulfilled Orders to Sales
         </button>
         <small style="display: block; color: #666; margin-top: 5px;">
-            Creates sales records for all previously fulfilled orders (historical data)
+            Creates sales records for all previously fulfilled orders and updates customer totals
         </small>
     `;
     
     dataManagementSection.appendChild(buttonContainer);
 }
 
+// ================== NAVIGATION FUNCTIONS ==================
+
+function showAllSales() {
+    showTab('reports');
+}
+
+function showAllCustomers() {
+    showTab('customers');
+}
+
+// ================== RECALCULATE ALL CUSTOMER TOTALS BUTTON ==================
+
+function addRecalculateTotalsButton() {
+    if (!isAdmin()) return;
+    
+    // Check if button already exists
+    if (document.getElementById('recalculateTotalsBtn')) return;
+    
+    const dataManagementSection = document.getElementById('dataManagementSection');
+    if (!dataManagementSection) return;
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.marginTop = '10px';
+    buttonContainer.innerHTML = `
+        <button class="btn-primary" id="recalculateTotalsBtn" onclick="recalculateAndRefreshCustomers()" style="background: #17a2b8;">
+            <i class="fas fa-calculator"></i> Recalculate All Customer Totals
+        </button>
+        <small style="display: block; color: #666; margin-top: 5px;">
+            Recalculates total spent for all customers based on sales data
+        </small>
+    `;
+    
+    dataManagementSection.appendChild(buttonContainer);
+}
+
+function recalculateAndRefreshCustomers() {
+    if (!checkAdminPermission('recalculate customer totals')) return;
+    
+    recalculateAllCustomerTotals();
+    loadCustomers();
+    showToast('✅ Customer totals recalculated successfully', 'success');
+}
+
 // Call this function after admin logs in
 setTimeout(() => {
     if (isAdmin()) {
         addSyncFulfilledButton();
+        addRecalculateTotalsButton();
     }
 }, 2000);
