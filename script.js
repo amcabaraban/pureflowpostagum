@@ -1063,7 +1063,7 @@ function loadRecentSales() {
 function loadTopCustomers() {
     const customers = JSON.parse(localStorage.getItem('customers') || '[]');
     const topCustomers = customers
-        .sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0))
+        .sort((a, b) => b.totalSpent - a.totalSpent)
         .slice(0, 5);
     
     const tableBody = document.getElementById('topCustomersTable');
@@ -1096,8 +1096,8 @@ function loadTopCustomers() {
         row.innerHTML = `
             <td><strong>${rankIcon}</strong></td>
             <td><strong>${customer.name}</strong></td>
-            <td>${formatCurrency(customer.totalSpent || 0)}</td>
-            <td>${customer.purchaseCount || 0}</td>
+            <td>₱${customer.totalSpent.toFixed(2)}</td>
+            <td>${customer.purchaseCount || 1}</td>
         `;
         tableBody.appendChild(row);
     });
@@ -1502,7 +1502,7 @@ function updatePerformanceMetrics() {
         : 0;
     
     // Calculate retention rate (customers with more than 1 purchase)
-    const repeatCustomers = customers.filter(c => (c.purchaseCount || 0) > 1).length;
+    const repeatCustomers = customers.filter(c => c.purchaseCount > 1).length;
     const retentionRate = customers.length > 0 
         ? (repeatCustomers / customers.length * 100).toFixed(1) 
         : 0;
@@ -1590,250 +1590,6 @@ function updatePerformanceMetrics() {
     }
 }
 
-// ================== CUSTOMER MANAGEMENT FUNCTIONS ==================
-
-/**
- * Recalculates total spent for all customers based on sales data
- * This ensures customer totals are accurate and up-to-date
- */
-function recalculateAllCustomerTotals() {
-    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
-    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-    
-    customers.forEach(customer => {
-        // Get all sales for this customer
-        const customerSales = sales.filter(sale => 
-            sale.customer && sale.customer.toLowerCase() === customer.name.toLowerCase()
-        );
-        
-        // Calculate total spent and purchase count
-        const totalSpent = customerSales.reduce((sum, sale) => sum + sale.amount, 0);
-        const purchaseCount = customerSales.length;
-        
-        // Update customer object
-        customer.totalSpent = totalSpent;
-        customer.purchaseCount = purchaseCount;
-        
-        // Update last purchase date if there are sales
-        if (customerSales.length > 0) {
-            const lastSale = customerSales.sort((a, b) => 
-                new Date(b.timestamp) - new Date(a.timestamp)
-            )[0];
-            customer.lastPurchase = lastSale.date || lastSale.timestamp;
-        }
-    });
-    
-    // Save updated customers back to localStorage
-    localStorage.setItem('customers', JSON.stringify(customers));
-    
-    console.log('✅ Customer totals recalculated');
-    return customers;
-}
-
-/**
- * Updates a single customer's total spent based on their sales
- * @param {string} customerName - The name of the customer to update
- */
-function updateCustomerTotal(customerName) {
-    if (!customerName || customerName === 'Walk-in' || customerName === 'Online Customer') return;
-    
-    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
-    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-    
-    const customerIndex = customers.findIndex(c => 
-        c.name.toLowerCase() === customerName.toLowerCase()
-    );
-    
-    if (customerIndex === -1) return;
-    
-    // Get all sales for this customer
-    const customerSales = sales.filter(sale => 
-        sale.customer && sale.customer.toLowerCase() === customerName.toLowerCase()
-    );
-    
-    // Calculate total spent and purchase count
-    const totalSpent = customerSales.reduce((sum, sale) => sum + sale.amount, 0);
-    const purchaseCount = customerSales.length;
-    
-    // Update customer
-    customers[customerIndex].totalSpent = totalSpent;
-    customers[customerIndex].purchaseCount = purchaseCount;
-    
-    // Update last purchase date if there are sales
-    if (customerSales.length > 0) {
-        const lastSale = customerSales.sort((a, b) => 
-            new Date(b.timestamp) - new Date(a.timestamp)
-        )[0];
-        customers[customerIndex].lastPurchase = lastSale.date || lastSale.timestamp;
-    }
-    
-    localStorage.setItem('customers', JSON.stringify(customers));
-}
-
-/**
- * Formats currency for display
- * @param {number} amount - The amount to format
- * @returns {string} Formatted currency string
- */
-function formatCurrency(amount) {
-    return '₱' + amount.toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
-}
-
-/**
- * Shows the edit customer modal for admin users only
- * @param {number} customerId - The ID of the customer to edit
- */
-function showEditCustomerModal(customerId) {
-    if (!checkAdminPermission('edit customers')) return;
-    
-    const customers = JSON.parse(localStorage.getItem('customers') || '[]');
-    const customer = customers.find(c => c.id === customerId);
-    
-    if (!customer) {
-        showToast('Customer not found', 'error');
-        return;
-    }
-    
-    // Create modal
-    const modal = document.createElement('div');
-    modal.className = 'modal active';
-    modal.id = 'editCustomerModal';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <div class="modal-logo-title">
-                    <img src="pureflow-logo.png" alt="PureFlow Logo" class="header-logo">
-                    <h3><i class="fas fa-edit"></i> Edit Customer</h3>
-                </div>
-                <button class="modal-close" onclick="closeEditCustomerModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-user"></i> Name *</label>
-                    <input type="text" id="editCustomerName" class="form-input" value="${customer.name}" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-phone"></i> Phone</label>
-                    <input type="text" id="editCustomerPhone" class="form-input" value="${customer.phone || ''}" placeholder="Enter phone number">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-map-marker-alt"></i> Address</label>
-                    <input type="text" id="editCustomerAddress" class="form-input" value="${customer.address || ''}" placeholder="Enter address">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label"><i class="fas fa-tag"></i> Type</label>
-                    <select id="editCustomerType" class="form-select">
-                        <option value="regular" ${customer.type === 'regular' ? 'selected' : ''}>Regular</option>
-                        <option value="suki" ${customer.type === 'suki' ? 'selected' : ''}>Suki</option>
-                    </select>
-                </div>
-                
-                <div class="info-box" style="background: #e8f4fd; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                    <h4 style="margin: 0 0 10px 0; color: #0056b3;"><i class="fas fa-chart-line"></i> Customer Statistics</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div>
-                            <strong>Total Spent:</strong><br>
-                            ${formatCurrency(customer.totalSpent || 0)}
-                        </div>
-                        <div>
-                            <strong>Purchase Count:</strong><br>
-                            ${customer.purchaseCount || 0}
-                        </div>
-                        <div>
-                            <strong>Last Purchase:</strong><br>
-                            ${customer.lastPurchase ? new Date(customer.lastPurchase).toLocaleDateString() : 'Never'}
-                        </div>
-                        <div>
-                            <strong>Added On:</strong><br>
-                            ${customer.dateAdded ? new Date(customer.dateAdded).toLocaleDateString() : 'N/A'}
-                        </div>
-                    </div>
-                </div>
-                
-                <input type="hidden" id="editCustomerId" value="${customer.id}">
-            </div>
-            <div class="modal-footer">
-                <button class="btn-primary" onclick="saveCustomerEdit()">
-                    <i class="fas fa-save"></i> Save Changes
-                </button>
-                <button class="btn-secondary" onclick="closeEditCustomerModal()">
-                    <i class="fas fa-times"></i> Cancel
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Close modal when clicking outside
-    modal.addEventListener('click', function(e) {
-        if (e.target === this) closeEditCustomerModal();
-    });
-}
-
-/**
- * Closes the edit customer modal
- */
-function closeEditCustomerModal() {
-    const modal = document.getElementById('editCustomerModal');
-    if (modal) modal.remove();
-}
-
-/**
- * Saves customer edits (admin only)
- */
-function saveCustomerEdit() {
-    if (!checkAdminPermission('edit customers')) return;
-    
-    const customerId = parseInt(document.getElementById('editCustomerId').value);
-    const newName = document.getElementById('editCustomerName').value.trim();
-    const newPhone = document.getElementById('editCustomerPhone').value.trim();
-    const newAddress = document.getElementById('editCustomerAddress').value.trim();
-    const newType = document.getElementById('editCustomerType').value;
-    
-    if (!newName) {
-        showToast('Customer name is required', 'error');
-        return;
-    }
-    
-    let customers = JSON.parse(localStorage.getItem('customers') || '[]');
-    const customerIndex = customers.findIndex(c => c.id === customerId);
-    
-    if (customerIndex === -1) {
-        showToast('Customer not found', 'error');
-        closeEditCustomerModal();
-        return;
-    }
-    
-    // Check if name already exists (but allow if it's the same customer)
-    const nameExists = customers.some(c => 
-        c.name.toLowerCase() === newName.toLowerCase() && c.id !== customerId
-    );
-    
-    if (nameExists) {
-        showToast('Another customer with this name already exists', 'error');
-        return;
-    }
-    
-    // Update customer
-    customers[customerIndex].name = newName;
-    customers[customerIndex].phone = newPhone;
-    customers[customerIndex].address = newAddress;
-    customers[customerIndex].type = newType;
-    customers[customerIndex].lastUpdated = new Date().toISOString();
-    customers[customerIndex].updatedBy = currentUser ? currentUser.username : 'system';
-    
-    localStorage.setItem('customers', JSON.stringify(customers));
-    
-    closeEditCustomerModal();
-    loadCustomers();
-    updateCustomerSuggestions();
-    showToast('Customer updated successfully', 'success');
-}
-
 // ================== DATA INITIALIZATION ==================
 function initializeSampleData() {
     if (!localStorage.getItem('customers')) {
@@ -1846,9 +1602,7 @@ function initializeSampleData() {
                 type: 'suki',
                 totalSpent: 1500,
                 purchaseCount: 10,
-                lastPurchase: new Date().toISOString(),
-                dateAdded: new Date().toISOString(),
-                addedBy: 'system'
+                lastPurchase: new Date().toISOString()
             },
             {
                 id: 2,
@@ -1858,40 +1612,24 @@ function initializeSampleData() {
                 type: 'regular',
                 totalSpent: 750,
                 purchaseCount: 5,
-                lastPurchase: new Date().toISOString(),
-                dateAdded: new Date().toISOString(),
-                addedBy: 'system'
+                lastPurchase: new Date().toISOString()
             }
         ];
         localStorage.setItem('customers', JSON.stringify(sampleCustomers));
     }
     
     if (!localStorage.getItem('sales')) {
-        // Initialize with sample sales that match customer totals
         const sampleSales = [
             {
                 id: 1,
                 customer: 'Juan Dela Cruz',
                 type: 'suki',
-                quantity: 100,
-                amount: 1500,
+                quantity: 2,
+                amount: 27,
                 date: new Date().toISOString(),
                 timestamp: Date.now() - 86400000,
                 processedBy: 'admin',
-                userRole: 'admin',
-                source: 'in-store'
-            },
-            {
-                id: 2,
-                customer: 'Maria Santos',
-                type: 'regular',
-                quantity: 50,
-                amount: 750,
-                date: new Date().toISOString(),
-                timestamp: Date.now() - 172800000,
-                processedBy: 'admin',
-                userRole: 'admin',
-                source: 'in-store'
+                userRole: 'admin'
             }
         ];
         localStorage.setItem('sales', JSON.stringify(sampleSales));
@@ -1927,10 +1665,6 @@ function initializeSampleData() {
     
     if (!localStorage.getItem('clientOrders')) {
         localStorage.setItem('clientOrders', JSON.stringify([]));
-    }
-    
-    if (!localStorage.getItem('voidedTransactions')) {
-        localStorage.setItem('voidedTransactions', JSON.stringify([]));
     }
 }
 
@@ -2063,14 +1797,6 @@ function showApp() {
     
     // Add void button for admin
     addVoidButtonToNav();
-    
-    // Add sync fulfilled orders button for admin
-    if (isAdmin()) {
-        setTimeout(() => {
-            addSyncFulfilledButton();
-            addRecalculateTotalsButton();
-        }, 2000);
-    }
 }
 
 function showClientInterface() {
@@ -2144,7 +1870,7 @@ function updateTablePermissions() {
         });
     }
     
-    // Update customers table - show edit button for admin only
+    // Update customers table
     const customersTable = document.getElementById('customersTable');
     if (customersTable) {
         const rows = customersTable.querySelectorAll('tr');
@@ -2154,9 +1880,6 @@ function updateTablePermissions() {
                 deleteBtn.style.display = 'none';
                 deleteBtn.disabled = true;
             }
-            
-            // Edit button is already in the HTML from loadCustomers()
-            // No need to modify here
         });
     }
 }
@@ -2240,20 +1963,33 @@ function clientLogout() {
 }
 
 // ================== SALES FUNCTIONS ==================
-// NOTE: processSale() has been modified to only record sales from fulfilled orders
-// Direct POS sales are now disabled to ensure sales are only recorded when orders are fulfilled
+function changeQuantity(change) {
+    const quantityInput = document.getElementById('quantity');
+    let newValue = parseInt(quantityInput.value) + change;
+    if (newValue < 1) newValue = 1;
+    quantityInput.value = newValue;
+    calculateTotal();
+}
+
+function calculateTotal() {
+    const quantity = parseInt(document.getElementById('quantity').value) || 1;
+    const isSuki = document.getElementById('customerType').value === 'suki';
+    
+    let pricePerUnit = basePrice;
+    if (isSuki) pricePerUnit = basePrice * (1 - sukiDiscount / 100);
+    
+    const totalAmount = (pricePerUnit * quantity).toFixed(2);
+    const totalAmountElement = document.getElementById('totalAmount');
+    if (totalAmountElement) totalAmountElement.textContent = totalAmount;
+    return parseFloat(totalAmount);
+}
+
 function processSale() {
     if (!currentUser) {
         showToast('Please login first', 'error');
         return;
     }
     
-    // ✅ FIX: Sales are now only recorded from fulfilled orders in the Orders tab
-    // This prevents duplicate/incomplete sales records
-    showToast('Sales are now recorded only from fulfilled orders. Please use the Orders tab to mark orders as delivered to record sales.', 'info');
-    return;
-    
-    /* Original code commented out to prevent direct sales recording
     const customerName = document.getElementById('customerName').value.trim();
     const customerType = document.getElementById('customerType').value;
     const quantity = parseInt(document.getElementById('quantity').value) || 1;
@@ -2324,28 +2060,6 @@ function processSale() {
     }
     
     showToast('Sale recorded successfully!', 'success');
-    */
-}
-
-function changeQuantity(change) {
-    const quantityInput = document.getElementById('quantity');
-    let newValue = parseInt(quantityInput.value) + change;
-    if (newValue < 1) newValue = 1;
-    quantityInput.value = newValue;
-    calculateTotal();
-}
-
-function calculateTotal() {
-    const quantity = parseInt(document.getElementById('quantity').value) || 1;
-    const isSuki = document.getElementById('customerType').value === 'suki';
-    
-    let pricePerUnit = basePrice;
-    if (isSuki) pricePerUnit = basePrice * (1 - sukiDiscount / 100);
-    
-    const totalAmount = (pricePerUnit * quantity).toFixed(2);
-    const totalAmountElement = document.getElementById('totalAmount');
-    if (totalAmountElement) totalAmountElement.textContent = totalAmount;
-    return parseFloat(totalAmount);
 }
 
 // ================== CUSTOMER MANAGEMENT ==================
@@ -2402,9 +2116,6 @@ function addNewCustomer() {
 }
 
 function loadCustomers() {
-    // First, recalculate all customer totals to ensure accuracy
-    recalculateAllCustomerTotals();
-    
     const customers = JSON.parse(localStorage.getItem('customers') || '[]');
     const tableBody = document.getElementById('customersTable');
     
@@ -2415,7 +2126,7 @@ function loadCustomers() {
     if (customers.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
                     <i class="fas fa-users-slash" style="font-size: 48px; margin-bottom: 10px; opacity: 0.3;"></i><br>
                     No customers yet. Click "Add New Customer" to add one.
                 </td>
@@ -2424,58 +2135,20 @@ function loadCustomers() {
         return;
     }
     
-    // Sort customers by total spent (highest first)
-    customers.sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0));
-    
     customers.forEach(customer => {
         const row = document.createElement('tr');
-        
-        // Format the total spent with commas for thousands
-        const formattedTotal = formatCurrency(customer.totalSpent || 0);
-        
-        // Action buttons based on user role
-        let actionButtons = '';
-        if (isAdmin()) {
-            actionButtons = `
-                <div class="action-buttons">
-                    <button class="action-btn edit" onclick="showEditCustomerModal(${customer.id})" title="Edit Customer">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn delete" onclick="deleteCustomer(${customer.id})" title="Delete Customer">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-        } else if (isCashier()) {
-            actionButtons = `
-                <div class="action-buttons">
-                    <button class="action-btn view" onclick="showEditCustomerModal(${customer.id})" title="View Customer (Read Only)" style="background: #17a2b8;">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="action-btn delete" disabled title="Cashiers cannot delete" style="opacity: 0.5; cursor: not-allowed;">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-        } else {
-            actionButtons = `
-                <div class="action-buttons">
-                    <button class="action-btn view" onclick="showEditCustomerModal(${customer.id})" title="View Customer">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            `;
-        }
-        
         row.innerHTML = `
             <td><strong>${customer.name}</strong></td>
             <td>${customer.phone || '<span style="color:#999; font-style:italic;">No phone</span>'}</td>
             <td>${customer.address || '<span style="color:#999; font-style:italic;">No address</span>'}</td>
-            <td><span class="customer-type ${customer.type}">${customer.type.toUpperCase()}</span></td>
-            <td><strong>${formattedTotal}</strong></td>
-            <td>${customer.purchaseCount || 0}</td>
+            <td><span class="customer-type ${customer.type}">${customer.type}</span></td>
+            <td>₱${customer.totalSpent.toFixed(2)}</td>
             <td>
-                ${actionButtons}
+                <div class="action-buttons">
+                    <button class="action-btn delete" onclick="deleteCustomer(${customer.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
             </td>
         `;
         tableBody.appendChild(row);
@@ -2500,7 +2173,7 @@ function filterCustomers() {
     if (filteredCustomers.length === 0) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
+                <td colspan="6" style="text-align: center; padding: 20px; color: #666;">
                     No customers found matching "${searchTerm}"
                 </td>
             </tr>
@@ -2510,51 +2183,18 @@ function filterCustomers() {
     
     filteredCustomers.forEach(customer => {
         const row = document.createElement('tr');
-        const formattedTotal = formatCurrency(customer.totalSpent || 0);
-        
-        // Action buttons based on user role
-        let actionButtons = '';
-        if (isAdmin()) {
-            actionButtons = `
-                <div class="action-buttons">
-                    <button class="action-btn edit" onclick="showEditCustomerModal(${customer.id})" title="Edit Customer">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="action-btn delete" onclick="deleteCustomer(${customer.id})" title="Delete Customer">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-        } else if (isCashier()) {
-            actionButtons = `
-                <div class="action-buttons">
-                    <button class="action-btn view" onclick="showEditCustomerModal(${customer.id})" title="View Customer (Read Only)" style="background: #17a2b8;">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="action-btn delete" disabled title="Cashiers cannot delete" style="opacity: 0.5; cursor: not-allowed;">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            `;
-        } else {
-            actionButtons = `
-                <div class="action-buttons">
-                    <button class="action-btn view" onclick="showEditCustomerModal(${customer.id})" title="View Customer">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-            `;
-        }
-        
         row.innerHTML = `
             <td><strong>${customer.name}</strong></td>
             <td>${customer.phone || '<span style="color:#999; font-style:italic;">No phone</span>'}</td>
             <td>${customer.address || '<span style="color:#999; font-style:italic;">No address</span>'}</td>
-            <td><span class="customer-type ${customer.type}">${customer.type.toUpperCase()}</span></td>
-            <td><strong>${formattedTotal}</strong></td>
-            <td>${customer.purchaseCount || 0}</td>
+            <td><span class="customer-type ${customer.type}">${customer.type}</span></td>
+            <td>₱${customer.totalSpent.toFixed(2)}</td>
             <td>
-                ${actionButtons}
+                <div class="action-buttons">
+                    <button class="action-btn delete" onclick="deleteCustomer(${customer.id})">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
             </td>
         `;
         tableBody.appendChild(row);
@@ -2631,7 +2271,7 @@ function generateReport() {
     if (filteredSales.length === 0) {
         reportBody.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                <td colspan="6" style="text-align: center; padding: 40px; color: #666;">
                     <i class="fas fa-chart-line" style="font-size: 48px; margin-bottom: 10px; opacity: 0.3;"></i><br>
                     No sales data for selected period
                 </td>
@@ -2667,21 +2307,12 @@ function generateReport() {
             `;
         }
         
-        // Add source indicator
-        let sourceIcon = '';
-        if (sale.source === 'online-order') {
-            sourceIcon = '<span class="online-badge" style="margin-left: 5px;">🌐 Online</span>';
-        } else if (sale.source === 'pos-order') {
-            sourceIcon = '<span class="pos-badge" style="margin-left: 5px;">🏪 POS</span>';
-        }
-        
         row.innerHTML = `
             <td>${saleDate.toLocaleString()}</td>
-            <td>${sale.customer} ${sourceIcon}</td>
+            <td>${sale.customer}</td>
             <td><span class="customer-type ${sale.type}">${sale.type}</span></td>
             <td>${sale.quantity}</td>
             <td>₱${sale.amount.toFixed(2)}</td>
-            <td>${sale.processedBy || 'N/A'}</td>
             <td>
                 <div class="action-buttons">
                     ${voidButton}
@@ -2705,19 +2336,9 @@ function deleteSale(saleId) {
     
     if (!confirm('Are you sure you want to delete this sale?')) return;
     
-    // Get the sale before deleting to update customer totals
-    const sales = JSON.parse(localStorage.getItem('sales') || '[]');
-    const sale = sales.find(s => s.id === saleId);
-    
-    // Remove the sale
-    let updatedSales = sales.filter(s => s.id !== saleId);
-    localStorage.setItem('sales', JSON.stringify(updatedSales));
-    
-    // Update customer total if applicable
-    if (sale && sale.customer && sale.customer !== 'Walk-in' && sale.customer !== 'Online Customer') {
-        updateCustomerTotal(sale.customer);
-    }
-    
+    let sales = JSON.parse(localStorage.getItem('sales') || '[]');
+    sales = sales.filter(s => s.id !== saleId);
+    localStorage.setItem('sales', JSON.stringify(sales));
     updateTodaySummary();
     generateReport();
     showToast('Sale deleted successfully', 'success');
@@ -2879,7 +2500,6 @@ function closeUpdateOrderModal() {
 
 /**
  * Creates a sale record from a fulfilled order
- * This is the ONLY place where sales are recorded in the system
  * @param {Object} order - The order object that was fulfilled
  */
 function createSaleFromOrder(order) {
@@ -2894,14 +2514,11 @@ function createSaleFromOrder(order) {
     
     // Determine customer type (suki or regular) based on customer data if available
     let customerType = 'regular';
-    let customerExists = false;
-    
     if (order.clientName) {
         const customers = JSON.parse(localStorage.getItem('customers') || '[]');
         const customer = customers.find(c => c.name.toLowerCase() === order.clientName.toLowerCase());
         if (customer) {
             customerType = customer.type || 'regular';
-            customerExists = true;
         }
     }
     
@@ -2925,39 +2542,22 @@ function createSaleFromOrder(order) {
     
     // Update customer total spent if customer exists
     if (order.clientName && order.clientName !== 'Online Customer' && order.clientName !== 'Walk-in') {
-        updateCustomerTotal(order.clientName);
-    } else if (!customerExists && order.clientName && order.clientName !== 'Online Customer' && order.clientName !== 'Walk-in') {
-        // If customer doesn't exist but we have a name, create a new customer record
         let customers = JSON.parse(localStorage.getItem('customers') || '[]');
-        const existingCustomer = customers.find(c => c.name.toLowerCase() === order.clientName.toLowerCase());
+        const existingCustomer = customers.find(c => 
+            c.name.toLowerCase() === order.clientName.toLowerCase()
+        );
         
-        if (!existingCustomer) {
-            const newCustomer = {
-                id: Date.now(),
-                name: order.clientName,
-                phone: order.clientPhone || '',
-                address: order.clientAddress || '',
-                type: 'regular',
-                totalSpent: parseFloat(order.totalAmount),
-                purchaseCount: 1,
-                lastPurchase: new Date().toISOString(),
-                dateAdded: new Date().toISOString(),
-                addedBy: currentUser ? currentUser.username : 'system',
-                addedByRole: currentUser ? currentUser.role : 'system'
-            };
-            customers.push(newCustomer);
+        if (existingCustomer) {
+            existingCustomer.totalSpent = (existingCustomer.totalSpent || 0) + parseFloat(order.totalAmount);
+            existingCustomer.purchaseCount = (existingCustomer.purchaseCount || 0) + 1;
+            existingCustomer.lastPurchase = new Date().toISOString();
             localStorage.setItem('customers', JSON.stringify(customers));
         }
     }
     
     console.log('✅ Sale created from fulfilled order:', order.id);
-    return newSale;
 }
 
-/**
- * Updates order status and creates sale record ONLY when order is fulfilled (delivered)
- * This ensures sales are recorded only for completed/fulfilled orders
- */
 function saveOrderUpdate() {
     if (!checkCashierPermission('update order status')) return;
     
@@ -2977,18 +2577,11 @@ function saveOrderUpdate() {
     orders[index].status = status;
     orders[index].deliveryPerson = deliveryPerson;
     
-    // ✅ FIX: Only create sale record when order is fulfilled (status changes to 'delivered')
-    // This ensures sales are recorded ONLY for completed orders
     if (status === 'delivered') {
         orders[index].fulfilled = true;
         orders[index].fulfillmentDate = new Date().toISOString();
         
         // Create a sale record for this fulfilled order
-        // This will add to sales array, which updates:
-        // - Dashboard metrics
-        // - Daily sales report
-        // - Summary statistics
-        // - Customer totals
         createSaleFromOrder(orders[index]);
     } else {
         orders[index].fulfilled = false;
@@ -3002,20 +2595,11 @@ function saveOrderUpdate() {
     loadOrdersReport();
     
     // Refresh dashboard and summary if they're active
-    // This ensures the new sale from fulfilled order appears in:
-    // - Dashboard metrics
-    // - Daily sales report
-    // - Summary statistics
     if (document.getElementById('dashboard').classList.contains('active')) {
         loadDashboardData();
     }
     updateTodaySummary();
     generateReport();
-    
-    // Refresh customers if the tab is active to update totals
-    if (document.getElementById('customers').classList.contains('active')) {
-        loadCustomers();
-    }
     
     showToast(`Order status updated from "${oldStatus}" to "${status}" successfully`, 'success');
 }
@@ -3062,7 +2646,6 @@ function syncExistingFulfilledOrders() {
     }
     generateReport();
     updateTodaySummary();
-    loadCustomers(); // Refresh customer totals
 }
 
 // ================== CLIENT ORDERING ==================
@@ -3112,8 +2695,7 @@ function submitClientOrder() {
         status: 'pending',
         orderDate: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'pos-client', // Mark as from POS client module
-        fulfilled: false
+        source: 'pos-client' // Mark as from POS client module
     };
     
     let orders = JSON.parse(localStorage.getItem('clientOrders') || '[]');
@@ -3641,7 +3223,6 @@ function backupData() {
         customers: JSON.parse(localStorage.getItem('customers') || '[]'),
         users: JSON.parse(localStorage.getItem('users') || '[]'),
         clientOrders: JSON.parse(localStorage.getItem('clientOrders') || '[]'),
-        voidedTransactions: JSON.parse(localStorage.getItem('voidedTransactions') || '[]'),
         settings: {
             storeName: localStorage.getItem('storeName'),
             basePrice: localStorage.getItem('basePrice'),
@@ -3683,7 +3264,6 @@ function clearData() {
     localStorage.removeItem('sales');
     localStorage.removeItem('customers');
     localStorage.removeItem('clientOrders');
-    localStorage.removeItem('voidedTransactions');
     
     // Restore users and settings
     localStorage.setItem('users', JSON.stringify(users));
@@ -3725,10 +3305,10 @@ function exportReport() {
         return;
     }
     
-    let csv = 'Date,Time,Customer,Type,Quantity,Amount,Processed By,User Role,Source,Order ID\n';
+    let csv = 'Date,Time,Customer,Type,Quantity,Amount,Processed By,User Role,Source\n';
     sales.forEach(sale => {
         const date = new Date(sale.timestamp);
-        csv += `"${date.toLocaleDateString()}","${date.toLocaleTimeString()}","${sale.customer}","${sale.type}",${sale.quantity},${sale.amount},"${sale.processedBy || 'N/A'}","${sale.userRole || 'N/A'}","${sale.source || 'in-store'}","${sale.orderId || 'N/A'}"\n`;
+        csv += `"${date.toLocaleDateString()}","${date.toLocaleTimeString()}","${sale.customer}","${sale.type}",${sale.quantity},${sale.amount},"${sale.processedBy || 'N/A'}","${sale.userRole || 'N/A'}","${sale.source || 'in-store'}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -3869,12 +3449,6 @@ function showVoidTransactionModal(saleId) {
                             <span class="detail-label">Processed By:</span>
                             <span class="detail-value">${sale.processedBy} (${sale.userRole})</span>
                         </div>
-                        ${sale.orderId ? `
-                        <div class="detail-item">
-                            <span class="detail-label">Order ID:</span>
-                            <span class="detail-value">${sale.orderId}</span>
-                        </div>
-                        ` : ''}
                     </div>
                 </div>
                 
@@ -3988,8 +3562,14 @@ function voidTransaction(saleId) {
     localStorage.setItem('sales', JSON.stringify(sales));
     
     // Update customer totals if applicable
-    if (sale.customer && sale.customer !== 'Walk-in' && sale.customer !== 'Online Customer') {
-        updateCustomerTotal(sale.customer);
+    if (sale.customer && sale.customer !== 'Walk-in') {
+        let customers = JSON.parse(localStorage.getItem('customers') || '[]');
+        const customer = customers.find(c => c.name.toLowerCase() === sale.customer.toLowerCase());
+        if (customer) {
+            customer.totalSpent -= sale.amount;
+            customer.purchaseCount -= 1;
+            localStorage.setItem('customers', JSON.stringify(customers));
+        }
     }
     
     closeVoidTransactionModal();
@@ -3997,9 +3577,6 @@ function voidTransaction(saleId) {
     generateReport();
     if (document.getElementById('dashboard').classList.contains('active')) {
         loadDashboardData();
-    }
-    if (document.getElementById('customers').classList.contains('active')) {
-        loadCustomers();
     }
     
     showToast('Transaction voided successfully', 'success');
@@ -4028,7 +3605,6 @@ function showVoidedTransactionsReport() {
                         <thead>
                             <tr>
                                 <th>Original Sale ID</th>
-                                <th>Order ID</th>
                                 <th>Voided Date</th>
                                 <th>Original Customer</th>
                                 <th>Original Amount</th>
@@ -4040,7 +3616,7 @@ function showVoidedTransactionsReport() {
                         <tbody id="voidedTransactionsBody">
                             ${voidedTransactions.length === 0 ? `
                                 <tr>
-                                    <td colspan="8" style="text-align: center; padding: 40px; color: #666;">
+                                    <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
                                         <i class="fas fa-ban" style="font-size: 48px; margin-bottom: 10px; opacity: 0.3;"></i><br>
                                         No voided transactions
                                     </td>
@@ -4089,7 +3665,6 @@ function showVoidedTransactionsReport() {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${voidRecord.originalSale.id}</td>
-                <td>${voidRecord.originalSale.orderId || 'N/A'}</td>
                 <td>${new Date(voidRecord.voidedAt).toLocaleString()}</td>
                 <td>${voidRecord.originalSale.customer}</td>
                 <td>₱${voidRecord.originalSale.amount.toFixed(2)}</td>
@@ -4118,9 +3693,9 @@ function exportVoidedTransactions() {
         return;
     }
     
-    let csv = 'Original Sale ID,Order ID,Voided Date,Original Customer,Original Amount,Processed By,Original Role,Voided By,Reason,Notes\n';
+    let csv = 'Original Sale ID,Voided Date,Original Customer,Original Amount,Processed By,Original Role,Voided By,Reason,Notes\n';
     voidedTransactions.forEach(record => {
-        csv += `"${record.originalSale.id}","${record.originalSale.orderId || 'N/A'}","${new Date(record.voidedAt).toLocaleString()}","${record.originalSale.customer}",${record.originalSale.amount},"${record.originalSale.processedBy}","${record.originalSale.userRole}","${record.voidedBy}","${record.reason}","${record.notes || ''}"\n`;
+        csv += `"${record.originalSale.id}","${new Date(record.voidedAt).toLocaleString()}","${record.originalSale.customer}",${record.originalSale.amount},"${record.originalSale.processedBy}","${record.originalSale.userRole}","${record.voidedBy}","${record.reason}","${record.notes || ''}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -4161,64 +3736,6 @@ function addVoidButtonToNav() {
     }
 }
 
-// ================== ADD SYNC FULFILLED ORDERS BUTTON FOR ADMIN ==================
-
-function addSyncFulfilledButton() {
-    if (!isAdmin()) return;
-    
-    // Check if button already exists
-    if (document.getElementById('syncFulfilledBtn')) return;
-    
-    const dataManagementSection = document.getElementById('dataManagementSection');
-    if (!dataManagementSection) return;
-    
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.marginTop = '10px';
-    buttonContainer.innerHTML = `
-        <button class="btn-primary" id="syncFulfilledBtn" onclick="syncExistingFulfilledOrders()">
-            <i class="fas fa-sync-alt"></i> Sync Fulfilled Orders to Sales
-        </button>
-        <small style="display: block; color: #666; margin-top: 5px;">
-            Creates sales records for all previously fulfilled orders and updates customer totals
-        </small>
-    `;
-    
-    dataManagementSection.appendChild(buttonContainer);
-}
-
-// ================== RECALCULATE ALL CUSTOMER TOTALS BUTTON ==================
-
-function addRecalculateTotalsButton() {
-    if (!isAdmin()) return;
-    
-    // Check if button already exists
-    if (document.getElementById('recalculateTotalsBtn')) return;
-    
-    const dataManagementSection = document.getElementById('dataManagementSection');
-    if (!dataManagementSection) return;
-    
-    const buttonContainer = document.createElement('div');
-    buttonContainer.style.marginTop = '10px';
-    buttonContainer.innerHTML = `
-        <button class="btn-primary" id="recalculateTotalsBtn" onclick="recalculateAndRefreshCustomers()" style="background: #17a2b8;">
-            <i class="fas fa-calculator"></i> Recalculate All Customer Totals
-        </button>
-        <small style="display: block; color: #666; margin-top: 5px;">
-            Recalculates total spent for all customers based on sales data
-        </small>
-    `;
-    
-    dataManagementSection.appendChild(buttonContainer);
-}
-
-function recalculateAndRefreshCustomers() {
-    if (!checkAdminPermission('recalculate customer totals')) return;
-    
-    recalculateAllCustomerTotals();
-    loadCustomers();
-    showToast('✅ Customer totals recalculated successfully', 'success');
-}
-
 // ================== NAVIGATION FUNCTIONS ==================
 
 function showAllSales() {
@@ -4228,11 +3745,3 @@ function showAllSales() {
 function showAllCustomers() {
     showTab('customers');
 }
-
-// Call this function after admin logs in
-setTimeout(() => {
-    if (isAdmin()) {
-        addSyncFulfilledButton();
-        addRecalculateTotalsButton();
-    }
-}, 2000);
