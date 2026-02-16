@@ -2498,6 +2498,66 @@ function closeUpdateOrderModal() {
     document.getElementById('updateOrderModal').classList.remove('active');
 }
 
+/**
+ * Creates a sale record from a fulfilled order
+ * @param {Object} order - The order object that was fulfilled
+ */
+function createSaleFromOrder(order) {
+    // Check if this order was already converted to a sale
+    let sales = JSON.parse(localStorage.getItem('sales') || '[]');
+    const existingSale = sales.find(s => s.orderId === order.id);
+    
+    if (existingSale) {
+        console.log('Sale already exists for this order:', order.id);
+        return;
+    }
+    
+    // Determine customer type (suki or regular) based on customer data if available
+    let customerType = 'regular';
+    if (order.clientName) {
+        const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+        const customer = customers.find(c => c.name.toLowerCase() === order.clientName.toLowerCase());
+        if (customer) {
+            customerType = customer.type || 'regular';
+        }
+    }
+    
+    const newSale = {
+        id: Date.now() + Math.floor(Math.random() * 1000), // Ensure unique ID
+        orderId: order.id, // Link back to the original order
+        customer: order.clientName || order.customerName || 'Online Customer',
+        type: customerType,
+        quantity: order.quantity,
+        amount: parseFloat(order.totalAmount),
+        date: new Date().toISOString(),
+        timestamp: Date.now(),
+        processedBy: currentUser ? currentUser.username : 'system',
+        userRole: currentUser ? currentUser.role : 'system',
+        source: order.source === 'online' ? 'online-order' : 'pos-order',
+        editable: currentUser && currentUser.role === 'admin'
+    };
+    
+    sales.push(newSale);
+    localStorage.setItem('sales', JSON.stringify(sales));
+    
+    // Update customer total spent if customer exists
+    if (order.clientName && order.clientName !== 'Online Customer' && order.clientName !== 'Walk-in') {
+        let customers = JSON.parse(localStorage.getItem('customers') || '[]');
+        const existingCustomer = customers.find(c => 
+            c.name.toLowerCase() === order.clientName.toLowerCase()
+        );
+        
+        if (existingCustomer) {
+            existingCustomer.totalSpent = (existingCustomer.totalSpent || 0) + parseFloat(order.totalAmount);
+            existingCustomer.purchaseCount = (existingCustomer.purchaseCount || 0) + 1;
+            existingCustomer.lastPurchase = new Date().toISOString();
+            localStorage.setItem('customers', JSON.stringify(customers));
+        }
+    }
+    
+    console.log('✅ Sale created from fulfilled order:', order.id);
+}
+
 function saveOrderUpdate() {
     if (!checkCashierPermission('update order status')) return;
     
@@ -2513,12 +2573,16 @@ function saveOrderUpdate() {
         return;
     }
     
+    const oldStatus = orders[index].status;
     orders[index].status = status;
     orders[index].deliveryPerson = deliveryPerson;
     
     if (status === 'delivered') {
         orders[index].fulfilled = true;
         orders[index].fulfillmentDate = new Date().toISOString();
+        
+        // Create a sale record for this fulfilled order
+        createSaleFromOrder(orders[index]);
     } else {
         orders[index].fulfilled = false;
     }
@@ -2529,7 +2593,15 @@ function saveOrderUpdate() {
     localStorage.setItem('clientOrders', JSON.stringify(orders));
     closeUpdateOrderModal();
     loadOrdersReport();
-    showToast('Order status updated successfully', 'success');
+    
+    // Refresh dashboard and summary if they're active
+    if (document.getElementById('dashboard').classList.contains('active')) {
+        loadDashboardData();
+    }
+    updateTodaySummary();
+    generateReport();
+    
+    showToast(`Order status updated from "${oldStatus}" to "${status}" successfully`, 'success');
 }
 
 function deleteOrder(orderId) {
@@ -2542,6 +2614,38 @@ function deleteOrder(orderId) {
     localStorage.setItem('clientOrders', JSON.stringify(orders));
     loadOrdersReport();
     showToast('Order deleted successfully', 'success');
+}
+
+/**
+ * Sync existing fulfilled orders to create sales records
+ * This function can be called manually to fix historical data
+ */
+function syncExistingFulfilledOrders() {
+    if (!checkAdminPermission('sync orders')) return;
+    
+    const orders = JSON.parse(localStorage.getItem('clientOrders') || '[]');
+    const fulfilledOrders = orders.filter(o => o.status === 'delivered');
+    let createdCount = 0;
+    
+    fulfilledOrders.forEach(order => {
+        // Check if sale already exists
+        let sales = JSON.parse(localStorage.getItem('sales') || '[]');
+        const existingSale = sales.find(s => s.orderId === order.id);
+        
+        if (!existingSale) {
+            createSaleFromOrder(order);
+            createdCount++;
+        }
+    });
+    
+    showToast(`Created sales for ${createdCount} fulfilled orders`, 'success');
+    
+    // Refresh displays
+    if (document.getElementById('dashboard').classList.contains('active')) {
+        loadDashboardData();
+    }
+    generateReport();
+    updateTodaySummary();
 }
 
 // ================== CLIENT ORDERING ==================
@@ -3201,10 +3305,10 @@ function exportReport() {
         return;
     }
     
-    let csv = 'Date,Time,Customer,Type,Quantity,Amount,Processed By,User Role\n';
+    let csv = 'Date,Time,Customer,Type,Quantity,Amount,Processed By,User Role,Source\n';
     sales.forEach(sale => {
         const date = new Date(sale.timestamp);
-        csv += `"${date.toLocaleDateString()}","${date.toLocaleTimeString()}","${sale.customer}","${sale.type}",${sale.quantity},${sale.amount},"${sale.processedBy || 'N/A'}","${sale.userRole || 'N/A'}"\n`;
+        csv += `"${date.toLocaleDateString()}","${date.toLocaleTimeString()}","${sale.customer}","${sale.type}",${sale.quantity},${sale.amount},"${sale.processedBy || 'N/A'}","${sale.userRole || 'N/A'}","${sale.source || 'in-store'}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
