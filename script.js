@@ -1619,20 +1619,8 @@ function initializeSampleData() {
     }
     
     if (!localStorage.getItem('sales')) {
-        const sampleSales = [
-            {
-                id: 1,
-                customer: 'Juan Dela Cruz',
-                type: 'suki',
-                quantity: 2,
-                amount: 27,
-                date: new Date().toISOString(),
-                timestamp: Date.now() - 86400000,
-                processedBy: 'admin',
-                userRole: 'admin'
-            }
-        ];
-        localStorage.setItem('sales', JSON.stringify(sampleSales));
+        // Initialize empty sales array - sales will only be created from fulfilled orders
+        localStorage.setItem('sales', JSON.stringify([]));
     }
     
     if (!localStorage.getItem('users')) {
@@ -1665,6 +1653,10 @@ function initializeSampleData() {
     
     if (!localStorage.getItem('clientOrders')) {
         localStorage.setItem('clientOrders', JSON.stringify([]));
+    }
+    
+    if (!localStorage.getItem('voidedTransactions')) {
+        localStorage.setItem('voidedTransactions', JSON.stringify([]));
     }
 }
 
@@ -1963,33 +1955,20 @@ function clientLogout() {
 }
 
 // ================== SALES FUNCTIONS ==================
-function changeQuantity(change) {
-    const quantityInput = document.getElementById('quantity');
-    let newValue = parseInt(quantityInput.value) + change;
-    if (newValue < 1) newValue = 1;
-    quantityInput.value = newValue;
-    calculateTotal();
-}
-
-function calculateTotal() {
-    const quantity = parseInt(document.getElementById('quantity').value) || 1;
-    const isSuki = document.getElementById('customerType').value === 'suki';
-    
-    let pricePerUnit = basePrice;
-    if (isSuki) pricePerUnit = basePrice * (1 - sukiDiscount / 100);
-    
-    const totalAmount = (pricePerUnit * quantity).toFixed(2);
-    const totalAmountElement = document.getElementById('totalAmount');
-    if (totalAmountElement) totalAmountElement.textContent = totalAmount;
-    return parseFloat(totalAmount);
-}
-
+// NOTE: processSale() has been modified to only record sales from fulfilled orders
+// Direct POS sales are now disabled to ensure sales are only recorded when orders are fulfilled
 function processSale() {
     if (!currentUser) {
         showToast('Please login first', 'error');
         return;
     }
     
+    // ✅ FIX: Sales are now only recorded from fulfilled orders in the Orders tab
+    // This prevents duplicate/incomplete sales records
+    showToast('Sales are now recorded only from fulfilled orders. Please use the Orders tab to mark orders as delivered to record sales.', 'info');
+    return;
+    
+    /* Original code commented out to prevent direct sales recording
     const customerName = document.getElementById('customerName').value.trim();
     const customerType = document.getElementById('customerType').value;
     const quantity = parseInt(document.getElementById('quantity').value) || 1;
@@ -2060,6 +2039,28 @@ function processSale() {
     }
     
     showToast('Sale recorded successfully!', 'success');
+    */
+}
+
+function changeQuantity(change) {
+    const quantityInput = document.getElementById('quantity');
+    let newValue = parseInt(quantityInput.value) + change;
+    if (newValue < 1) newValue = 1;
+    quantityInput.value = newValue;
+    calculateTotal();
+}
+
+function calculateTotal() {
+    const quantity = parseInt(document.getElementById('quantity').value) || 1;
+    const isSuki = document.getElementById('customerType').value === 'suki';
+    
+    let pricePerUnit = basePrice;
+    if (isSuki) pricePerUnit = basePrice * (1 - sukiDiscount / 100);
+    
+    const totalAmount = (pricePerUnit * quantity).toFixed(2);
+    const totalAmountElement = document.getElementById('totalAmount');
+    if (totalAmountElement) totalAmountElement.textContent = totalAmount;
+    return parseFloat(totalAmount);
 }
 
 // ================== CUSTOMER MANAGEMENT ==================
@@ -2307,9 +2308,17 @@ function generateReport() {
             `;
         }
         
+        // Add source indicator
+        let sourceIcon = '';
+        if (sale.source === 'online-order') {
+            sourceIcon = '<span class="online-badge" style="margin-left: 5px;">🌐 Online</span>';
+        } else if (sale.source === 'pos-order') {
+            sourceIcon = '<span class="pos-badge" style="margin-left: 5px;">🏪 POS</span>';
+        }
+        
         row.innerHTML = `
             <td>${saleDate.toLocaleString()}</td>
-            <td>${sale.customer}</td>
+            <td>${sale.customer} ${sourceIcon}</td>
             <td><span class="customer-type ${sale.type}">${sale.type}</span></td>
             <td>${sale.quantity}</td>
             <td>₱${sale.amount.toFixed(2)}</td>
@@ -2500,6 +2509,7 @@ function closeUpdateOrderModal() {
 
 /**
  * Creates a sale record from a fulfilled order
+ * This is the ONLY place where sales are recorded in the system
  * @param {Object} order - The order object that was fulfilled
  */
 function createSaleFromOrder(order) {
@@ -2556,8 +2566,13 @@ function createSaleFromOrder(order) {
     }
     
     console.log('✅ Sale created from fulfilled order:', order.id);
+    return newSale;
 }
 
+/**
+ * Updates order status and creates sale record ONLY when order is fulfilled (delivered)
+ * This ensures sales are recorded only for completed/fulfilled orders
+ */
 function saveOrderUpdate() {
     if (!checkCashierPermission('update order status')) return;
     
@@ -2577,11 +2592,17 @@ function saveOrderUpdate() {
     orders[index].status = status;
     orders[index].deliveryPerson = deliveryPerson;
     
+    // ✅ FIX: Only create sale record when order is fulfilled (status changes to 'delivered')
+    // This ensures sales are recorded ONLY for completed orders
     if (status === 'delivered') {
         orders[index].fulfilled = true;
         orders[index].fulfillmentDate = new Date().toISOString();
         
         // Create a sale record for this fulfilled order
+        // This will add to sales array, which updates:
+        // - Dashboard metrics
+        // - Daily sales report
+        // - Summary statistics
         createSaleFromOrder(orders[index]);
     } else {
         orders[index].fulfilled = false;
@@ -2595,6 +2616,10 @@ function saveOrderUpdate() {
     loadOrdersReport();
     
     // Refresh dashboard and summary if they're active
+    // This ensures the new sale from fulfilled order appears in:
+    // - Dashboard metrics
+    // - Daily sales report
+    // - Summary statistics
     if (document.getElementById('dashboard').classList.contains('active')) {
         loadDashboardData();
     }
@@ -2695,7 +2720,8 @@ function submitClientOrder() {
         status: 'pending',
         orderDate: new Date().toISOString(),
         timestamp: Date.now(),
-        source: 'pos-client' // Mark as from POS client module
+        source: 'pos-client', // Mark as from POS client module
+        fulfilled: false
     };
     
     let orders = JSON.parse(localStorage.getItem('clientOrders') || '[]');
@@ -3223,6 +3249,7 @@ function backupData() {
         customers: JSON.parse(localStorage.getItem('customers') || '[]'),
         users: JSON.parse(localStorage.getItem('users') || '[]'),
         clientOrders: JSON.parse(localStorage.getItem('clientOrders') || '[]'),
+        voidedTransactions: JSON.parse(localStorage.getItem('voidedTransactions') || '[]'),
         settings: {
             storeName: localStorage.getItem('storeName'),
             basePrice: localStorage.getItem('basePrice'),
@@ -3264,6 +3291,7 @@ function clearData() {
     localStorage.removeItem('sales');
     localStorage.removeItem('customers');
     localStorage.removeItem('clientOrders');
+    localStorage.removeItem('voidedTransactions');
     
     // Restore users and settings
     localStorage.setItem('users', JSON.stringify(users));
@@ -3305,10 +3333,10 @@ function exportReport() {
         return;
     }
     
-    let csv = 'Date,Time,Customer,Type,Quantity,Amount,Processed By,User Role,Source\n';
+    let csv = 'Date,Time,Customer,Type,Quantity,Amount,Processed By,User Role,Source,Order ID\n';
     sales.forEach(sale => {
         const date = new Date(sale.timestamp);
-        csv += `"${date.toLocaleDateString()}","${date.toLocaleTimeString()}","${sale.customer}","${sale.type}",${sale.quantity},${sale.amount},"${sale.processedBy || 'N/A'}","${sale.userRole || 'N/A'}","${sale.source || 'in-store'}"\n`;
+        csv += `"${date.toLocaleDateString()}","${date.toLocaleTimeString()}","${sale.customer}","${sale.type}",${sale.quantity},${sale.amount},"${sale.processedBy || 'N/A'}","${sale.userRole || 'N/A'}","${sale.source || 'in-store'}","${sale.orderId || 'N/A'}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -3449,6 +3477,12 @@ function showVoidTransactionModal(saleId) {
                             <span class="detail-label">Processed By:</span>
                             <span class="detail-value">${sale.processedBy} (${sale.userRole})</span>
                         </div>
+                        ${sale.orderId ? `
+                        <div class="detail-item">
+                            <span class="detail-label">Order ID:</span>
+                            <span class="detail-value">${sale.orderId}</span>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
                 
@@ -3562,7 +3596,7 @@ function voidTransaction(saleId) {
     localStorage.setItem('sales', JSON.stringify(sales));
     
     // Update customer totals if applicable
-    if (sale.customer && sale.customer !== 'Walk-in') {
+    if (sale.customer && sale.customer !== 'Walk-in' && sale.customer !== 'Online Customer') {
         let customers = JSON.parse(localStorage.getItem('customers') || '[]');
         const customer = customers.find(c => c.name.toLowerCase() === sale.customer.toLowerCase());
         if (customer) {
@@ -3605,6 +3639,7 @@ function showVoidedTransactionsReport() {
                         <thead>
                             <tr>
                                 <th>Original Sale ID</th>
+                                <th>Order ID</th>
                                 <th>Voided Date</th>
                                 <th>Original Customer</th>
                                 <th>Original Amount</th>
@@ -3616,7 +3651,7 @@ function showVoidedTransactionsReport() {
                         <tbody id="voidedTransactionsBody">
                             ${voidedTransactions.length === 0 ? `
                                 <tr>
-                                    <td colspan="7" style="text-align: center; padding: 40px; color: #666;">
+                                    <td colspan="8" style="text-align: center; padding: 40px; color: #666;">
                                         <i class="fas fa-ban" style="font-size: 48px; margin-bottom: 10px; opacity: 0.3;"></i><br>
                                         No voided transactions
                                     </td>
@@ -3665,6 +3700,7 @@ function showVoidedTransactionsReport() {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${voidRecord.originalSale.id}</td>
+                <td>${voidRecord.originalSale.orderId || 'N/A'}</td>
                 <td>${new Date(voidRecord.voidedAt).toLocaleString()}</td>
                 <td>${voidRecord.originalSale.customer}</td>
                 <td>₱${voidRecord.originalSale.amount.toFixed(2)}</td>
@@ -3693,9 +3729,9 @@ function exportVoidedTransactions() {
         return;
     }
     
-    let csv = 'Original Sale ID,Voided Date,Original Customer,Original Amount,Processed By,Original Role,Voided By,Reason,Notes\n';
+    let csv = 'Original Sale ID,Order ID,Voided Date,Original Customer,Original Amount,Processed By,Original Role,Voided By,Reason,Notes\n';
     voidedTransactions.forEach(record => {
-        csv += `"${record.originalSale.id}","${new Date(record.voidedAt).toLocaleString()}","${record.originalSale.customer}",${record.originalSale.amount},"${record.originalSale.processedBy}","${record.originalSale.userRole}","${record.voidedBy}","${record.reason}","${record.notes || ''}"\n`;
+        csv += `"${record.originalSale.id}","${record.originalSale.orderId || 'N/A'}","${new Date(record.voidedAt).toLocaleString()}","${record.originalSale.customer}",${record.originalSale.amount},"${record.originalSale.processedBy}","${record.originalSale.userRole}","${record.voidedBy}","${record.reason}","${record.notes || ''}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -3745,3 +3781,35 @@ function showAllSales() {
 function showAllCustomers() {
     showTab('customers');
 }
+
+// ================== ADD SYNC FULFILLED ORDERS BUTTON FOR ADMIN ==================
+
+function addSyncFulfilledButton() {
+    if (!isAdmin()) return;
+    
+    // Check if button already exists
+    if (document.getElementById('syncFulfilledBtn')) return;
+    
+    const dataManagementSection = document.getElementById('dataManagementSection');
+    if (!dataManagementSection) return;
+    
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.marginTop = '10px';
+    buttonContainer.innerHTML = `
+        <button class="btn-primary" id="syncFulfilledBtn" onclick="syncExistingFulfilledOrders()">
+            <i class="fas fa-sync-alt"></i> Sync Fulfilled Orders to Sales
+        </button>
+        <small style="display: block; color: #666; margin-top: 5px;">
+            Creates sales records for all previously fulfilled orders (historical data)
+        </small>
+    `;
+    
+    dataManagementSection.appendChild(buttonContainer);
+}
+
+// Call this function after admin logs in
+setTimeout(() => {
+    if (isAdmin()) {
+        addSyncFulfilledButton();
+    }
+}, 2000);
