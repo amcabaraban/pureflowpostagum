@@ -2749,6 +2749,7 @@ function loadClientOrders() {
     }
 }
 
+// ================== CLIENT PROFILE FUNCTIONS ==================
 function loadClientProfile() {
     if (!currentClient) return;
     
@@ -2769,11 +2770,38 @@ function updateClientProfile() {
         return;
     }
     
+    // Update current client
     currentClient.name = name;
     currentClient.phone = phone;
     currentClient.address = address;
+    
+    // Save to localStorage
     localStorage.setItem('currentClient', JSON.stringify(currentClient));
+    
+    // Update any orders this client has placed with the new information
+    let orders = JSON.parse(localStorage.getItem('clientOrders') || '[]');
+    let updated = false;
+    
+    orders = orders.map(order => {
+        if (order.clientId === currentClient.id) {
+            updated = true;
+            return {
+                ...order,
+                clientName: name,
+                clientPhone: phone,
+                clientAddress: address
+            };
+        }
+        return order;
+    });
+    
+    if (updated) {
+        localStorage.setItem('clientOrders', JSON.stringify(orders));
+    }
+    
+    // Update client info display
     updateClientInfo();
+    
     showToast('Profile updated successfully', 'success');
 }
 
